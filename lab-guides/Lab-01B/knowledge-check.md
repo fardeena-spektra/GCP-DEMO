@@ -1,8 +1,12 @@
-# 📝 Knowledge Check
+# **Knowledge Check**
 
-Answer these short questions to check your understanding of **Day 1 Support: Troubleshoot the Banking Agent**. Each question shows the correct answer and an explanation once you submit it.
+Answer these short questions to check your understanding of how you diagnosed and fixed the Nova banking agent incident.
 
----
+
+
+## Answer the following questions
+
+
 
 <question source="./Inline-Questions/question-01.md" />
 
@@ -16,6 +20,4 @@ Answer these short questions to check your understanding of **Day 1 Support: Tro
 
 ---
 
-### 🎉 You have successfully completed the lab.
-
-**Coming up on Day 2 (Support):** set up log-based alerting and dashboards for Nova.
+## Congratulations! You have successfully completed the **Day 1 Support: Troubleshoot the Banking Agent** lab. Please click **End Lab** to complete the lab.
