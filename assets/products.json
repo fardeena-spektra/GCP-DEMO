@@ -1,0 +1,34 @@
+{
+  "bank": "Northbridge Bank",
+  "version": "2026-10",
+  "published": "2026-10-01",
+  "products": [
+    {
+      "name": "Everyday Saver",
+      "type": "Easy-access savings",
+      "keywords": ["saver", "savings", "easy access", "everyday"],
+      "rate_aer": "4.15%",
+      "minimum_deposit": "£1",
+      "withdrawals": "Unlimited, no notice required",
+      "eligibility": "UK residents aged 16+ with a Northbridge current account"
+    },
+    {
+      "name": "1-Year Fixed Rate Bond",
+      "type": "Fixed-term savings",
+      "keywords": ["bond", "fixed", "fixed rate", "1 year", "one year"],
+      "rate_aer": "4.60%",
+      "minimum_deposit": "£2,000",
+      "withdrawals": "Not permitted until maturity",
+      "eligibility": "UK residents aged 18+"
+    },
+    {
+      "name": "Northbridge Current Account",
+      "type": "Current account",
+      "keywords": ["current", "current account", "debit", "overdraft", "card"],
+      "monthly_fee": "£0",
+      "arranged_overdraft_ear": "39.9% EAR variable",
+      "overseas_card_fee": "0% on debit card purchases abroad",
+      "eligibility": "UK residents aged 18+"
+    }
+  ]
+}

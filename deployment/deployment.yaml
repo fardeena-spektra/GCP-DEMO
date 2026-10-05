@@ -1,0 +1,156 @@
+# =============================================================================
+# CloudLabs | Fast Lane GCP AI Engineering - Day 1 shared environment
+# One deployment per learner project. Serves Lab 01A (Builder) and Lab 01B (Support).
+# Same wrapper and outputs as the standard CloudLabs GCP VM template, plus:
+#   - knowledge-base bucket (nbkb-@deploymentId)
+#   - agent runtime service account (bank-agent-sa)
+#   - read-only bucket access for the agent (least privilege)
+# Set the CloudLabs region to europe-west2 (London) for Vertex AI Gemini.
+# Project-level steps (APIs, Vertex AI role, knowledge files) are done by
+# scripts/setup-environment.sh, which runs after this deployment.
+# =============================================================================
+resources:
+  - name: clgvpc-@deploymentId
+    type: compute.v1.network
+    properties:
+      autoCreateSubnetworks: false
+
+  - name: clgsubnet-@deploymentId
+    type: compute.v1.subnetwork
+    properties:
+      network: $(ref.clgvpc-@deploymentId.selfLink)
+      ipCidrRange: 10.1.0.0/24
+      region: @region
+
+  - name: allow-rdp-@deploymentId
+    type: compute.v1.firewall
+    properties:
+      network: $(ref.clgvpc-@deploymentId.selfLink)
+      sourceRanges: ['0.0.0.0/0']
+      allowed:
+      - IPProtocol: tcp
+        ports: [3389]
+      targetTags: ['rdp']
+
+  - name: allow-http-https-@deploymentId
+    type: compute.v1.firewall
+    properties:
+      network: $(ref.clgvpc-@deploymentId.selfLink)
+      sourceRanges: ['0.0.0.0/0']
+      allowed:
+      - IPProtocol: tcp
+        ports: [80, 443]
+      targetTags: ['http-server', 'https-server']
+
+  # --- Knowledge base used by the agent ---------------------------------------
+  - name: nbkb-@deploymentId
+    type: storage.v1.bucket
+    properties:
+      location: @region
+      storageClass: STANDARD
+      iamConfiguration:
+        uniformBucketLevelAccess:
+          enabled: true
+
+  # --- Agent runtime identity --------------------------------------------------
+  - name: bank-agent-sa
+    type: iam.v1.serviceAccount
+    properties:
+      accountId: bank-agent-sa
+      displayName: Northbridge helpdesk agent runtime
+
+  # --- Least privilege: the agent may only READ this one bucket ----------------
+  - name: kb-reader-@deploymentId
+    type: gcp-types/storage-v1:virtual.buckets.iamMemberBinding
+    properties:
+      bucket: $(ref.nbkb-@deploymentId.name)
+      role: roles/storage.objectViewer
+      member: serviceAccount:$(ref.bank-agent-sa.email)
+
+  # --- Learner workstation (web-based RDP) --------------------------------------
+  - name: labvm-@deploymentId
+    type: compute.v1.instance
+    properties:
+      zone: @zone
+      machineType: zones/@zone/machineTypes/e2-standard-2
+      disks:
+      - deviceName: boot
+        type: PERSISTENT
+        boot: true
+        autoDelete: true
+        initializeParams:
+          sourceImage: projects/windows-cloud/global/images/windows-server-2022-dc-v20251112
+          diskSizeGb: 50
+      networkInterfaces:
+      - network: $(ref.clgvpc-@deploymentId.selfLink)
+        subnetwork: $(ref.clgsubnet-@deploymentId.selfLink)
+        accessConfigs:
+        - name: External NAT
+          type: ONE_TO_ONE_NAT
+      tags:
+        items: ['rdp']
+      metadata:
+        items:
+        - key: windows-startup-script-ps1
+          value: |
+              $userName = "Labuser"
+              $password = ConvertTo-SecureString "Password.1!!" -AsPlainText -Force
+              if (-not (Get-LocalUser -Name $userName -ErrorAction SilentlyContinue)) {
+                New-LocalUser -Name $userName -Password $password -PasswordNeverExpires -UserMayNotChangePassword -AccountNeverExpires
+                Add-LocalGroupMember -Group "Administrators" -Member $userName
+              }
+              # Desktop shortcuts for every user
+              $desk = "C:\Users\Public\Desktop"
+              $edge = @("C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe","C:\Program Files\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+              $links = @(@("Google Cloud Console","https://console.cloud.google.com"),@("Google Cloud Shell","https://shell.cloud.google.com"))
+              $ws = New-Object -ComObject WScript.Shell
+              foreach ($l in $links) {
+                if ($edge) {
+                  $s = $ws.CreateShortcut("$desk\$($l[0]).lnk"); $s.TargetPath = $edge; $s.Arguments = $l[1]; $s.IconLocation = "$edge,0"; $s.Save()
+                } else {
+                  Set-Content -Path "$desk\$($l[0]).url" -Value @("[InternetShortcut]","URL=$($l[1])")
+                }
+              }
+              # Edge: skip the first-run wizard
+              $pol = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+              New-Item -Path $pol -Force | Out-Null
+              New-ItemProperty -Path $pol -Name HideFirstRunExperience -Value 1 -PropertyType DWord -Force | Out-Null
+              Get-ScheduledTask -TaskName ServerManager -ErrorAction SilentlyContinue | Disable-ScheduledTask | Out-Null
+
+outputs:
+  - name: vpcName
+    value: $(ref.clgvpc-@deploymentId.name)
+
+  - name: vpcId
+    value: $(ref.clgvpc-@deploymentId.id)
+
+  - name: subnetName
+    value: $(ref.clgsubnet-@deploymentId.name)
+
+  - name: subnetId
+    value: $(ref.clgsubnet-@deploymentId.id)
+
+  - name: vmPublicIp
+    value: $(ref.labvm-@deploymentId.networkInterfaces[0].accessConfigs[0].natIP)
+
+  - name: vmPrivateIp
+    value: $(ref.labvm-@deploymentId.networkInterfaces[0].networkIP)
+
+  - name: vmUsername
+    value: "Labuser"
+
+  - name: vmPassword
+    value: "Password.1!!"
+
+  # --- Lab guide inject keys ---------------------------------------------------
+  - name: ProjectId
+    value: $(ref.bank-agent-sa.projectId)
+
+  - name: KbBucket
+    value: $(ref.nbkb-@deploymentId.name)
+
+  - name: AgentServiceAccount
+    value: $(ref.bank-agent-sa.email)
+
+  - name: Region
+    value: @region
