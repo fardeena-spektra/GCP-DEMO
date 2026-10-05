@@ -1,10 +1,20 @@
-### Question 2
+## MetaData
+Question Type : Single Choice
 
-In the ADK Dev UI Events tab, what proves that an answer is grounded in the knowledge base?
+## Question
+2. In the ADK Dev UI Events tab, what proves that an answer is grounded in the knowledge base?
 
-- [ ] The answer is returned in under one second
-- [ ] The answer mentions Northbridge Bank
-- [x] A functionCall to get_product_info followed by a functionResponse before the final answer
-- [ ] The chat shows the agent name Nova
+## Options
+Option 1 : The answer is returned in under one second.
 
-**Explanation:** The functionCall and functionResponse events show the agent fetched the figure from the tool rather than from the model's general knowledge.
+Option 2 : The answer mentions Northbridge Bank.
+
+Option 3 : A functionCall to get_product_info followed by a functionResponse before the final answer.
+
+Option 4 : The chat shows the agent name Nova.
+
+## Answers
+Option 3 : 2
+
+## Number of Retries
+1
