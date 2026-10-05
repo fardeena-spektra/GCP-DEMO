@@ -247,4 +247,4 @@ In this lab, you have:
 
 **Coming up on Day 2 (Support):** set up log-based **alerting and dashboards** for Nova, so the next incident is caught before customers notice it.
 
-### You have successfully completed the lab. Select **Next >>** to continue to the Day 1 leaderboard.
+### Select **Next >>** to continue to the Knowledge Check.

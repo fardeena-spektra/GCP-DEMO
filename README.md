@@ -21,7 +21,7 @@ Two linked labs that share **one GCP project per learner**:
 ## Onboarding steps
 
 1. **Template:** upload `deployment/param.yaml` and `deployment/deployment.yaml`. Set the region to **europe-west2** and use a per-learner project.
-2. **Post-deployment script:** run `scripts/setup-environment.sh` with `PROJECT_ID` (and `LEARNER_EMAIL` if CloudLabs does not already grant the learner access).
+2. **Bootstrap (automatic):** `deployment.yaml` creates `setupvm-<deploymentId>`, which downloads `scripts/setup-environment.sh` from GitHub, runs it once and then stops itself. Log: `/var/log/cloudlabs-setup.log` on that VM.
 3. **Lab 01B start action:** run `scripts/inject-fault-lab01b.sh` with `PROJECT_ID`. The runner needs `gcloud`, `pip` and Python 3.10+.
 4. **VM configuration** (web-based RDP), same as the standard template:
 

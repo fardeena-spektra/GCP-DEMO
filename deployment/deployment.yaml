@@ -6,8 +6,10 @@
 #   - agent runtime service account (bank-agent-sa)
 #   - read-only bucket access for the agent (least privilege)
 # Set the CloudLabs region to europe-west2 (London) for Vertex AI Gemini.
-# Project-level steps (APIs, Vertex AI role, knowledge files) are done by
-# scripts/setup-environment.sh, which runs after this deployment.
+# Bootstrap (like the Azure CustomScript extension): the small Linux VM
+# "setupvm-@deploymentId" downloads scripts/setup-environment.sh from GitHub
+# and runs it once on first boot, then stops itself. Log on that VM:
+# /var/log/cloudlabs-setup.log
 # =============================================================================
 resources:
   - name: clgvpc-@deploymentId
@@ -66,6 +68,82 @@ resources:
       bucket: $(ref.nbkb-@deploymentId.name)
       role: roles/storage.objectViewer
       member: serviceAccount:$(ref.bank-agent-sa.email)
+
+  # --- Bootstrap identity: runs setup-environment.sh --------------------------
+  - name: lab-setup-sa
+    type: iam.v1.serviceAccount
+    properties:
+      accountId: lab-setup-sa
+      displayName: CloudLabs lab bootstrap
+
+  - name: lab-setup-owner-@deploymentId
+    type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+    properties:
+      resource: $(ref.bank-agent-sa.projectId)
+      role: roles/owner
+      member: serviceAccount:$(ref.lab-setup-sa.email)
+
+  # --- Bootstrap VM (equivalent of the Azure CSE) -------------------------------
+  - name: setupvm-@deploymentId
+    type: compute.v1.instance
+    metadata:
+      dependsOn:
+      - lab-setup-owner-@deploymentId
+      - nbkb-@deploymentId
+      - kb-reader-@deploymentId
+    properties:
+      zone: @zone
+      machineType: zones/@zone/machineTypes/e2-small
+      disks:
+      - deviceName: boot
+        type: PERSISTENT
+        boot: true
+        autoDelete: true
+        initializeParams:
+          sourceImage: projects/debian-cloud/global/images/family/debian-12
+          diskSizeGb: 10
+      networkInterfaces:
+      - network: $(ref.clgvpc-@deploymentId.selfLink)
+        subnetwork: $(ref.clgsubnet-@deploymentId.selfLink)
+        accessConfigs:
+        - name: External NAT
+          type: ONE_TO_ONE_NAT
+      serviceAccounts:
+      - email: $(ref.lab-setup-sa.email)
+        scopes:
+        - https://www.googleapis.com/auth/cloud-platform
+      metadata:
+        items:
+        - key: setup-url
+          value: https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/scripts/setup-environment.sh
+        - key: lab-region
+          value: @region
+        - key: startup-script
+          value: |
+              #!/bin/bash
+              # CloudLabs bootstrap: runs setup-environment.sh once, then stops this VM.
+              exec >> /var/log/cloudlabs-setup.log 2>&1
+              DONE=/var/lib/cloudlabs-setup.done
+              [ -f "$DONE" ] && { echo "[boot] setup already done"; exit 0; }
+              md() { curl -s -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/$1"; }
+              PROJECT_ID="$(md project/project-id)"
+              REGION="$(md instance/attributes/lab-region)"
+              ZONE="$(md instance/zone | awk -F/ '{print $NF}')"
+              URL="$(md instance/attributes/setup-url)"
+              echo "[boot] $(date -u) project=$PROJECT_ID region=$REGION"
+              echo "[boot] downloading $URL"
+              curl -fsSL --retry 5 "$URL" -o /tmp/setup-environment.sh || { echo "[boot] download failed"; exit 1; }
+              echo "[boot] waiting for the Owner role to propagate"
+              for i in $(seq 1 30); do
+                gcloud projects get-iam-policy "$PROJECT_ID" --format='value(etag)' >/dev/null 2>&1 && break
+                sleep 10
+              done
+              if PROJECT_ID="$PROJECT_ID" REGION="$REGION" bash /tmp/setup-environment.sh; then
+                touch "$DONE"; echo "[boot] SETUP SUCCEEDED"
+                gcloud compute instances stop "$(hostname)" --zone="$ZONE" --quiet
+              else
+                echo "[boot] SETUP FAILED - see the lines above"
+              fi
 
   # --- Learner workstation (web-based RDP) --------------------------------------
   - name: labvm-@deploymentId
@@ -154,3 +232,6 @@ outputs:
 
   - name: Region
     value: @region
+
+  - name: setupVmName
+    value: setupvm-@deploymentId

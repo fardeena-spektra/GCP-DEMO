@@ -1,0 +1,24 @@
+{
+  "Code": "FASTLANE-GCP-AI-DAY1-01A",
+  "Name": "Day 1 Builder: Build Your First Banking Agent",
+  "Description": "Build an AI agent with the Agent Development Kit and Gemini on Vertex AI, ground it in a Cloud Storage knowledge base and deploy it securely to Cloud Run.",
+  "Language": "English",
+  "WebSite": "",
+  "Files": [
+    {
+      "Name": "Getting Started",
+      "Order": 1,
+      "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01A/getting-started.md"
+    },
+    {
+      "Name": "Build Your First Banking Agent",
+      "Order": 2,
+      "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01A/Lab-01A-Builder-Build-Your-First-Banking-Agent.md"
+    },
+    {
+      "Name": "Knowledge Check",
+      "Order": 3,
+      "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01A/knowledge-check.md"
+    }
+  ]
+}
