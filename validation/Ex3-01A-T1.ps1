@@ -15,7 +15,7 @@ param(
     [string]$projectname
 )
 
-$region  = "europe-west2"
+$region  = "any region"   # detected automatically from the service
 $service = "bank-agent"
 $agentSa = "bank-agent-sa@$projectname.iam.gserviceaccount.com"
 $message = $null
@@ -24,11 +24,18 @@ function New-Result([string]$Status, [string]$Message) {
     @{ Status = $Status; Message = $Message } | ConvertTo-Json
 }
 
-# Cloud Run service as JSON, or $null if it does not exist
+# Cloud Run service as JSON, searched in ALL regions, or $null if it does not exist.
+# Sets $script:region to the region where the service was found.
 function Get-AgentService {
-    $json = gcloud run services describe $service --region $region --project $projectname --format="json" 2>$null
+    $json = gcloud run services list --project $projectname --filter="metadata.name=$service" --format="json" 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
-    return ($json | Out-String | ConvertFrom-Json)
+    $list = @($json | Out-String | ConvertFrom-Json)
+    if ($list.Count -eq 0 -or -not $list[0]) { return $null }
+    $svc = $list[0]
+    $loc = $svc.metadata.labels.'cloud.googleapis.com/location'
+    if ($loc) { $script:region = $loc }
+    Write-Host "Found '$service' in region: $script:region"
+    return $svc
 }
 
 # Environment variables on the service, as a hashtable
@@ -77,7 +84,7 @@ try {
     Write-Host "Checking Cloud Run service '$service'..."
     $svc = Get-AgentService
     if (-not $svc) {
-        $message = New-Result "Failed" "Cloud Run service 'bank-agent' was not found in $region. Complete Exercise 3, Task 1 and wait for the deployment to finish."
+        $message = New-Result "Failed" "Cloud Run service 'bank-agent' was not found in any region. Complete Exercise 3, Task 1 and wait for the deployment to finish."
     }
     elseif (-not $svc.status.url) {
         $message = New-Result "Failed" "The service 'bank-agent' has no URL yet. Wait for the deployment to finish, then validate again."
