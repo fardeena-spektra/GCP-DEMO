@@ -1,0 +1,87 @@
+resources:
+  - name: clgvpc-@deploymentId
+    type: compute.v1.network
+    properties:
+      autoCreateSubnetworks: false
+
+  - name: clgsubnet-@deploymentId
+    type: compute.v1.subnetwork
+    properties:
+      network: $(ref.clgvpc-@deploymentId.selfLink)
+      ipCidrRange: 10.1.0.0/24
+      region: @region
+
+  - name: allow-rdp-@deploymentId
+    type: compute.v1.firewall
+    properties:
+      network: $(ref.clgvpc-@deploymentId.selfLink)
+      sourceRanges: ['0.0.0.0/0']
+      allowed:
+      - IPProtocol: tcp
+        ports: [3389]
+      targetTags: ['rdp']  
+
+  - name: allow-http-https-@deploymentId
+    type: compute.v1.firewall
+    properties:
+      network: $(ref.clgvpc-@deploymentId.selfLink)
+      sourceRanges: ['0.0.0.0/0']
+      allowed:
+      - IPProtocol: tcp
+        ports: [80, 443]
+      targetTags: ['http-server', 'https-server']
+
+  - name: labvm-@deploymentId
+    type: compute.v1.instance
+    properties:
+      zone: @zone
+      machineType: zones/@zone/machineTypes/e2-medium
+      disks:
+      - deviceName: boot
+        type: PERSISTENT
+        boot: true
+        autoDelete: true
+        initializeParams:
+          sourceImage: projects/windows-cloud/global/images/windows-server-2022-dc-v20251112
+          diskSizeGb: 50
+      networkInterfaces:
+      - network: $(ref.clgvpc-@deploymentId.selfLink)
+        subnetwork: $(ref.clgsubnet-@deploymentId.selfLink)
+        accessConfigs:
+        - name: External NAT
+          type: ONE_TO_ONE_NAT
+      tags:
+        items: ['rdp']
+      metadata:
+        items:
+        - key: windows-startup-script-ps1
+          value: |
+              $userName = "Labuser"
+              $password = ConvertTo-SecureString "Password.1!!" -AsPlainText -Force
+              New-LocalUser -Name $userName -Password $password -PasswordNeverExpires -UserMayNotChangePassword -AccountNeverExpires 
+              Add-LocalGroupMember -Group "Administrators" -Member $userName
+
+outputs:
+  - name: vpcName
+    value: $(ref.clgvpc-@deploymentId.name)
+
+  - name: vpcId
+    value: $(ref.clgvpc-@deploymentId.id)
+
+  - name: subnetName
+    value: $(ref.clgsubnet-@deploymentId.name)
+
+  - name: subnetId
+    value: $(ref.clgsubnet-@deploymentId.id)
+
+  - name: vmPublicIp
+    value: $(ref.labvm-@deploymentId.networkInterfaces[0].accessConfigs[0].natIP)
+
+  - name: vmPrivateIp
+    value: $(ref.labvm-@deploymentId.networkInterfaces[0].networkIP)
+
+  - name: vmUsername
+    value: "Labuser"
+
+  - name: vmPassword
+    value: "Password.1!!"

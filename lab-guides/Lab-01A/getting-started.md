@@ -24,7 +24,7 @@ The lab window is split into two parts:
 - **Left side:** your lab virtual machine (VM), a Windows workstation with a browser.
 - **Right side:** the lab guide, with the steps to complete each task.
 
-![Lab layout](./media/images/gs-lab-layout.png)
+![Lab layout](../media/gs-lab-layout.png)
 
 Your environment is an **isolated Google Cloud project** created only for you. It has been pre-provisioned with:
 
@@ -39,7 +39,7 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 
 ## 🧭 Lab Window Controls
 
-![Lab window controls](./media/images/gs-topbar.png)
+![Lab window controls](../media/gs-topbar.png)
 
 | # | Control | Use |
 |:---:|---|---|
@@ -79,8 +79,8 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 
     | Detail | Value |
     |---|---|
-    | 👤 **Username** | <inject key="GCPUsername" enableCopy="true"/> |
-    | 🔒 **Password** | <inject key="GCPPassword" enableCopy="true"/> |
+    | 👤 **Username** | <inject key="Username" enableCopy="true"/> |
+    | 🔒 **Password** | <inject key="Password" enableCopy="true"/> |
 
 1. If prompted, accept the **Terms of Service**.
 1. From the project selector, select your project <inject key="ProjectId" enableCopy="false"/>.
@@ -95,7 +95,7 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 1. Scroll to the **Validation Check** under the task.
 1. Click **Validate**.
 
-![Validate button](./media/images/gs-validate.png)
+![Validate button](../media/gs-validate.png)
 
 - On success, the status shows **Success** and the points are added to your **Progress**.
 - If a check fails, read the message, fix the issue and click **Validate** again.
