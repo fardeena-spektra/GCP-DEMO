@@ -1,10 +1,20 @@
-### Question 2
+## MetaData
+Question Type : Single Choice
 
-Which fix restores access while following least privilege?
+## Question
+2. Which fix restores access while following least privilege?
 
-- [ ] Grant the agent service account the Owner role on the project
-- [ ] Make the bucket public
-- [x] Grant roles/storage.objectViewer to the agent service account on the knowledge-base bucket only
-- [ ] Grant Storage Admin to all users in the project
+## Options
+Option 1 : Grant the agent service account the Owner role on the project.
 
-**Explanation:** Read-only access on one bucket gives the agent exactly what it needs and nothing more.
+Option 2 : Make the bucket public.
+
+Option 3 : Grant roles/storage.objectViewer to the agent service account on the knowledge-base bucket only.
+
+Option 4 : Grant Storage Admin to all users in the project.
+
+## Answers
+Option 3 : 2
+
+## Number of Retries
+1
