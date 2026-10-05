@@ -59,11 +59,11 @@ In this exercise, you will sign in to the Google Cloud console, open Cloud Shell
 
 1. On the **Sign in** page, enter the following email and select **Next**:
 
-   - Email/Username: <inject key="GCPUsername" enableCopy="true"/>
+   - Email/Username: <inject key="Username" enableCopy="true"/>
 
 1. Enter the following password and select **Next**:
 
-   - Password: <inject key="GCPPassword" enableCopy="true"/>
+   - Password: <inject key="Password" enableCopy="true"/>
 
 1. If prompted, accept the **Terms of Service** and select **Agree and continue**.
 
