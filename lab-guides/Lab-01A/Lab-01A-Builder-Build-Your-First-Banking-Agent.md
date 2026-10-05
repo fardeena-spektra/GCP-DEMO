@@ -43,7 +43,7 @@ Your isolated Google Cloud project has been pre-provisioned with the following:
 | Resource | Value |
 |---|---|
 | Project ID | <inject key="ProjectId" enableCopy="true"/> |
-| Region | **europe-west2** (London) |
+| Region | **<inject key="Region" enableCopy="true"/>** |
 | Knowledge-base bucket | <inject key="KbBucket" enableCopy="true"/> |
 | Agent runtime service account | <inject key="AgentServiceAccount" enableCopy="true"/> |
 
