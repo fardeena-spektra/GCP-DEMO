@@ -313,9 +313,10 @@ In this exercise, you will deploy the agent as a private Cloud Run service that 
    > - If not, carefully read the error message and retry the step, following the instructions in the lab guide.
    > - If you need any assistance, please contact us at cloudlabs-support@spektrasystems.com. We are available 24/7 to help you out.
 
-   <validation step="6fbfb6eb-f6ef-47ae-a72b-1a62b6bcf773" />
-
 ---
+
+
+   <validation step="6fbfb6eb-f6ef-47ae-a72b-1a62b6bcf773" />
 
 ## Summary
 
