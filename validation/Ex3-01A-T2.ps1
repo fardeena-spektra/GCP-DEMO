@@ -1,96 +1,62 @@
 <#
-=====================================================================
- CloudLabs validation - Lab 01A, Exercise 3, Task 2: Call the deployed agent securely
+ CloudLabs validation | LAB01A-EX3-TASK2
+ Exercise 3, Task 2: Call the deployed agent securely
  Lab: Day 1 Builder: Build Your First Banking Agent
- Step ID: LAB01A-EX3-TASK2
 
- Runs on the CloudLabs Validator Function App (PowerShell 7 worker).
- Nothing to install: it talks to the Google Cloud REST APIs directly,
- signing in with the GCP service account key that CloudLabs passes in.
+ Script Type : PowerShellV2      Run As : System
+ Parameters  : projectname = GET-GCP-PROJECT (System)
 
- Inputs (set by CloudLabs):
-   $project_id       learner's GCP project ID
-   $gcp_credentials  service account key JSON of the CloudLabs validation
-                     identity (needs Owner, or Viewer + Cloud Run Invoker,
-                     on the learner project)
-
- What passing means:
-   1. The deployed agent answers a live question.
-   2. It called the get_product_info tool.
-   3. It returned the current Everyday Saver rate, 4.15%.
-=====================================================================
+ Passes when:
+   - the live agent calls the get_product_info tool
+   - and returns the current Everyday Saver rate, 4.15%
 #>
+param(
+    [string]$projectname
+)
 
-$project_id      = $project_id
-$gcp_credentials = $gcp_credentials
-$region          = "europe-west2"
-$service         = "bank-agent"
-$agentSa         = "bank-agent-sa@$project_id.iam.gserviceaccount.com"
+$region  = "any region"   # detected automatically from the service
+$service = "bank-agent"
+$agentSa = "bank-agent-sa@$projectname.iam.gserviceaccount.com"
+$message = $null
 
-# ---------------------------------------------------------------------
-# Google sign-in: signs a JWT with the service account key and exchanges
-# it for an access token (APIs) or an ID token (calling Cloud Run).
-# ---------------------------------------------------------------------
-function ConvertTo-B64Url([byte[]]$Bytes) {
-    [Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+function New-Result([string]$Status, [string]$Message) {
+    @{ Status = $Status; Message = $Message } | ConvertTo-Json
 }
 
-function Get-GcpToken([string]$Audience) {
-    $key = $gcp_credentials | ConvertFrom-Json
-    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $claims = @{ iss = $key.client_email; aud = "https://oauth2.googleapis.com/token"; iat = $now; exp = $now + 3600 }
-    if ($Audience) { $claims.target_audience = $Audience }
-    else { $claims.scope = "https://www.googleapis.com/auth/cloud-platform" }
-    $header   = ConvertTo-B64Url ([Text.Encoding]::UTF8.GetBytes('{"alg":"RS256","typ":"JWT"}'))
-    $payload  = ConvertTo-B64Url ([Text.Encoding]::UTF8.GetBytes(($claims | ConvertTo-Json -Compress)))
-    $unsigned = "$header.$payload"
-    $rsa = [System.Security.Cryptography.RSA]::Create()
-    $rsa.ImportFromPem($key.private_key)
-    $sig = $rsa.SignData([Text.Encoding]::UTF8.GetBytes($unsigned),
-                         [Security.Cryptography.HashAlgorithmName]::SHA256,
-                         [Security.Cryptography.RSASignaturePadding]::Pkcs1)
-    $jwt = "$unsigned." + (ConvertTo-B64Url $sig)
-    $r = Invoke-RestMethod -Method Post -Uri "https://oauth2.googleapis.com/token" -TimeoutSec 20 `
-         -Body @{ grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"; assertion = $jwt }
-    if ($Audience) { return $r.id_token } else { return $r.access_token }
-}
-
-# GET/POST a Google API. Returns $null on 404 so a missing resource is a
-# clear check failure, not a crash.
-function Invoke-Gcp([string]$Method, [string]$Uri, $Body = $null) {
-    $h = @{ Authorization = "Bearer $script:token" }
-    try {
-        if ($Body -ne $null) {
-            return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $h -ContentType "application/json" `
-                   -Body ($Body | ConvertTo-Json -Depth 10 -Compress) -TimeoutSec 30
-        }
-        return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $h -TimeoutSec 30
-    } catch {
-        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) { return $null }
-        throw
-    }
-}
-
-function Get-KbBucket {
-    $r = Invoke-Gcp GET "https://storage.googleapis.com/storage/v1/b?project=$project_id&prefix=nbkb-"
-    if ($r -and $r.items) { return $r.items[0].name }
-    return $null
-}
-
+# Cloud Run service as JSON, searched in ALL regions, or $null if it does not exist.
+# Sets $script:region to the region where the service was found.
 function Get-AgentService {
-    Invoke-Gcp GET "https://run.googleapis.com/v2/projects/$project_id/locations/$region/services/$service"
+    $json = gcloud run services list --project $projectname --filter="metadata.name=$service" --format="json" 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
+    $list = @($json | Out-String | ConvertFrom-Json)
+    if ($list.Count -eq 0 -or -not $list[0]) { return $null }
+    $svc = $list[0]
+    $loc = $svc.metadata.labels.'cloud.googleapis.com/location'
+    if ($loc) { $script:region = $loc }
+    Write-Host "Found '$service' in region: $script:region"
+    return $svc
 }
 
+# Environment variables on the service, as a hashtable
 function Get-ServiceEnv($svc) {
     $envMap = @{}
-    foreach ($c in $svc.template.containers) { foreach ($e in $c.env) { $envMap[$e.name] = $e.value } }
+    foreach ($c in @($svc.spec.template.spec.containers)) {
+        foreach ($e in @($c.env)) { if ($e.name) { $envMap[$e.name] = $e.value } }
+    }
     return $envMap
 }
 
-# Ask the deployed agent one question. Returns @{ Text; ToolCalled }.
+# Knowledge-base bucket created by the deployment (nbkb-<deploymentId>)
+function Get-KbBucket {
+    $b = gcloud storage buckets list --project $projectname --format="value(name)" --filter="name~^nbkb-" 2>$null
+    return (@($b) | Where-Object { $_ } | Select-Object -First 1)
+}
+
+# Ask the live agent one question. Returns @{ Text; ToolCalled }
 function Invoke-Agent([string]$Url, [string]$Prompt) {
-    $idToken = Get-GcpToken -Audience $Url
-    $h   = @{ Authorization = "Bearer $idToken" }
+    $token = gcloud auth print-identity-token --audiences="$Url" 2>$null
+    if (-not $token) { $token = gcloud auth print-identity-token 2>$null }
+    $h   = @{ Authorization = "Bearer $(@($token)[0])" }
     $sid = "val-" + [guid]::NewGuid().ToString("N").Substring(0, 8)
     Invoke-RestMethod -Method Post -Uri "$Url/apps/bank_agent/users/cloudlabs-validator/sessions/$sid" `
         -Headers $h -ContentType "application/json" -Body "{}" -TimeoutSec 30 | Out-Null
@@ -99,71 +65,52 @@ function Invoke-Agent([string]$Url, [string]$Prompt) {
     $events = Invoke-RestMethod -Method Post -Uri "$Url/run" -Headers $h -ContentType "application/json" `
               -Body $body -TimeoutSec 45
     $texts = @(); $tool = $false
-    foreach ($ev in $events) {
+    foreach ($ev in @($events)) {
         foreach ($part in @($ev.content.parts)) {
             if ($part.functionCall -and $part.functionCall.name -eq "get_product_info") { $tool = $true }
             if ($part.text) { $texts += $part.text }
         }
     }
-    return @{ Text = ($(if ($texts.Count) { $texts[-1] } else { "" })); ToolCalled = $tool }
+    $last = if ($texts.Count) { $texts[-1] } else { "" }
+    return @{ Text = $last; ToolCalled = $tool }
 }
 
-function New-Result([string]$Status, [string]$Message) {
-    @{ Status = $Status; Message = $Message } | ConvertTo-Json
-}
+try {
+    if (-not $projectname) { throw "The projectname parameter is empty. Map it to GET-GCP-PROJECT." }
+    Write-Host "Project: $projectname"
+    gcloud config set project $projectname --quiet 2>$null | Out-Null
 
-# ---------------------------------------------------------------------
-# The check
-# ---------------------------------------------------------------------
-function Test-Step {
+    Write-Host "Checking Cloud Run service '$service'..."
     $svc = Get-AgentService
-    if (-not $svc -or -not $svc.uri) {
-        return New-Result "Failed" "Cloud Run service 'bank-agent' was not found. Complete Exercise 3, Task 1 first."
+    if (-not $svc -or -not $svc.status.url) {
+        $message = New-Result "Failed" "Cloud Run service 'bank-agent' was not found. Complete Exercise 3, Task 1 first."
     }
-    $ans = Invoke-Agent -Url $svc.uri -Prompt "What is the interest rate on the Everyday Saver account?"
-    if (-not $ans.ToolCalled) {
-        return New-Result "Failed" "The agent answered without calling get_product_info. Check that the tool is registered and the instruction requires it."
-    }
-    if ($ans.Text -notmatch "4\.15") {
+    else {
+        Write-Host "Asking the agent at $($svc.status.url)..."
+        $ans = Invoke-Agent -Url $svc.status.url -Prompt "What is the interest rate on the Everyday Saver account?"
+        Write-Host "Tool called: $($ans.ToolCalled) | Answer: $($ans.Text)"
         $short = $ans.Text.Substring(0, [Math]::Min(200, $ans.Text.Length))
-        return New-Result "Failed" "The agent did not return the current Everyday Saver rate (4.15% AER). Response: $short"
-    }
-    return New-Result "Succeeded" "The deployed agent called the knowledge-base tool and returned the correct, grounded answer (4.15% AER)."
-}
-
-# ---------------------------------------------------------------------
-# Retry wrapper (same pattern as the other CloudLabs validators)
-# ---------------------------------------------------------------------
-$stopRetry       = $false
-[int]$retryCount = 0
-$maxRetries      = 3
-
-do {
-    try {
-        if (-not $project_id -or -not $gcp_credentials) {
-            throw "project_id or gcp_credentials was not provided to the validator."
+        if (-not $ans.ToolCalled) {
+            $message = New-Result "Failed" "The agent answered without calling get_product_info. Check that the tool is registered and the instruction requires it."
         }
-        $script:token = Get-GcpToken
-        $message = Test-Step
-
-        Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
-            StatusCode = [System.Net.HttpStatusCode]::OK
-            Body       = $message
-        })
-        $stopRetry = $true
-    }
-    catch {
-        $retryCount++
-        if ($retryCount -ge $maxRetries) {
-            $message = New-Result "Failed" "Retry for validation process has been exhausted. Please try after sometime."
-            Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
-                StatusCode = [System.Net.HttpStatusCode]::OK
-                Body       = $message
-            })
-            $stopRetry = $true
+        elseif ($ans.Text -notmatch "4\.15") {
+            $message = New-Result "Failed" "The agent did not return the current Everyday Saver rate (4.15% AER). Response: $short"
         }
         else {
-            Start-Sleep -Seconds 5
+            $message = New-Result "Succeeded" "The deployed agent called the knowledge-base tool and returned the correct, grounded answer (4.15% AER)."
         }
     }
-} while (-not $stopRetry)
+}
+catch {
+    Write-Host "`nERROR:"
+    Write-Host $_
+    $message = New-Result "Failed" "The check could not complete. Please wait a minute and validate again. Details: $_"
+}
+
+Write-Host "`n=== FINAL RESPONSE ==="
+Write-Host $message
+
+Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
+    StatusCode = [System.Net.HttpStatusCode]::OK
+    Body       = $message
+})
