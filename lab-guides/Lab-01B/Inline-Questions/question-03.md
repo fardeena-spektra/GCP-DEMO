@@ -1,10 +1,20 @@
-### Question 3
+## MetaData
+Question Type : Single Choice
 
-After access was restored, Nova answered confidently with 3.10%. Why is this more serious than the original outage?
+## Question
+3. After access was restored, Nova answered confidently with 3.10%. Why is this more serious than the original outage?
 
-- [x] A confident wrong answer can mislead customers and break compliance, while an outage is obvious
-- [ ] It costs more to run
-- [ ] It means the model has stopped working
-- [ ] It deletes the knowledge base
+## Options
+Option 1 : A confident wrong answer can mislead customers and break compliance, while an outage is obvious.
 
-**Explanation:** Silent failures look healthy, so they reach customers. The KB_LOOKUP log showed the agent was reading the archived 2023 file.
+Option 2 : It costs more to run.
+
+Option 3 : It means the model has stopped working.
+
+Option 4 : It deletes the knowledge base.
+
+## Answers
+Option 1 : 2
+
+## Number of Retries
+1
