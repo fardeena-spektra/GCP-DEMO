@@ -1,8 +1,12 @@
-# 📝 Knowledge Check
+# **Knowledge Check**
 
-Answer these short questions to check your understanding of **Day 1 Builder: Build Your First Banking Agent**. Each question shows the correct answer and an explanation once you submit it.
+Answer these short questions to check your understanding of how you built, grounded and securely deployed the Nova banking agent.
 
----
+
+
+## Answer the following questions
+
+
 
 <question source="./Inline-Questions/question-01.md" />
 
@@ -16,6 +20,4 @@ Answer these short questions to check your understanding of **Day 1 Builder: Bui
 
 ---
 
-### 🎉 You have successfully completed the lab.
-
-Continue to **Day 1 Support: Troubleshoot the Banking Agent**, where you operate and fix the agent you just built.
+## Congratulations! You have successfully completed the **Day 1 Builder: Build Your First Banking Agent** lab. Please click **End Lab** to complete the lab.
