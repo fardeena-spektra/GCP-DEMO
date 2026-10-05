@@ -1,24 +1,20 @@
-{
-  "Code": "FASTLANE-GCP-AI-DAY1-01B",
-  "Name": "Day 1 Support: Troubleshoot the Banking Agent",
-  "Description": "Troubleshoot a production AI agent on Cloud Run using Cloud Logging and IAM, fix a stale knowledge source and verify the agent's behaviour.",
-  "Language": "English",
-  "WebSite": "",
-  "Files": [
-    {
-      "Name": "Getting Started",
-      "Order": 1,
-      "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01B/getting-started.md"
-    },
-    {
-      "Name": "Troubleshoot the Banking Agent",
-      "Order": 2,
-      "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01B/Lab-01B-Support-Troubleshoot-the-Banking-Agent.md"
-    },
-    {
-      "Name": "Knowledge Check",
-      "Order": 3,
-      "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01B/knowledge-check.md"
-    }
-  ]
-}
+[
+  {
+    "Name": "Day 1 Support: Troubleshoot the Banking Agent",
+    "Language": "English",
+    "Files": [
+      {
+        "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01B/getting-started.md",
+        "Order": 1
+      },
+      {
+        "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01B/Lab-01B-Support-Troubleshoot-the-Banking-Agent.md",
+        "Order": 2
+      },
+      {
+        "RawFilePath": "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/lab-guides/Lab-01B/knowledge-check.md",
+        "Order": 3
+      }
+    ]
+  }
+]
