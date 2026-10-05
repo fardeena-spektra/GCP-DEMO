@@ -271,7 +271,7 @@ In this exercise, you will deploy the agent as a private Cloud Run service that 
    > - If not, carefully read the error message and retry the step, following the instructions in the lab guide.
    > - If you need any assistance, please contact us at cloudlabs-support@spektrasystems.com. We are available 24/7 to help you out.
 
-   <validation step="LAB01A-EX3-TASK1" />
+   <validation step="70b0f2d9-152f-449b-aa05-b0c93b06af66" />
 
 ### Task 2: Call the deployed agent securely
 
@@ -313,7 +313,7 @@ In this exercise, you will deploy the agent as a private Cloud Run service that 
    > - If not, carefully read the error message and retry the step, following the instructions in the lab guide.
    > - If you need any assistance, please contact us at cloudlabs-support@spektrasystems.com. We are available 24/7 to help you out.
 
-   <validation step="LAB01A-EX3-TASK2" />
+   <validation step="6fbfb6eb-f6ef-47ae-a72b-1a62b6bcf773" />
 
 ---
 
