@@ -1,70 +1,68 @@
 <#
- CloudLabs validation | LAB01A-EX3-TASK1
- Exercise 3, Task 1: Deploy and configure the service
- Lab: Day 1 Builder: Build Your First Banking Agent
+ CloudLabs validation | LAB01B-EX1-TASK1
+ Exercise 1, Task 1: Start the incident (injects the two faults)
+ Lab: Day 1 Support: Troubleshoot the Banking Agent
 
  Script Type : PowerShellV2      Run As : System
- Parameters  : projectname = GET-GCP-PROJECT (System)
+ Parameters  : DeploymentId = GET-DEPLOYMENT-ID (System)
+               projectname  = GET-GCP-PROJECT   (System)
 
  Passes when:
-   - Cloud Run service bank-agent exists in europe-west2 and has a URL
-   - it runs as bank-agent-sa
-   - KB_BUCKET is the nbkb-* bucket and KB_FILE is products.json
+   - always (score 0). Deploys the reference agent-vm if Lab 01A was skipped,
+     then injects Fault A (no bucket read for bank-agent-sa) and
+     Fault B (KB_FILE = archive/products_2023.json, VM restarted)
 #>
 param(
+    [string]$DeploymentId,
     [string]$projectname
 )
 
-$region  = "any region"   # detected automatically from the service
-$service = "bank-agent"
+$vmName  = "agent-vm"
 $agentSa = "bank-agent-sa@$projectname.iam.gserviceaccount.com"
+$zone    = ""
 $message = $null
 
 function New-Result([string]$Status, [string]$Message) {
     @{ Status = $Status; Message = $Message } | ConvertTo-Json
 }
 
-# Cloud Run service as JSON, searched in ALL regions, or $null if it does not exist.
-# Sets $script:region to the region where the service was found.
-function Get-AgentService {
-    $json = gcloud run services list --project $projectname --filter="metadata.name=$service" --format="json" 2>$null
+# agent-vm as JSON (any zone), or $null. Sets $script:zone.
+function Get-AgentVm {
+    $json = gcloud compute instances list --project $projectname --filter="name=$vmName" --format="json" 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
     $list = @($json | Out-String | ConvertFrom-Json)
     if ($list.Count -eq 0 -or -not $list[0]) { return $null }
-    $svc = $list[0]
-    $loc = $svc.metadata.labels.'cloud.googleapis.com/location'
-    if ($loc) { $script:region = $loc }
-    Write-Host "Found '$service' in region: $script:region"
-    return $svc
+    $script:zone = ($list[0].zone -split "/")[-1]
+    Write-Host "Found $vmName in zone $script:zone (status $($list[0].status))"
+    return $list[0]
 }
 
-# Environment variables on the service, as a hashtable
-function Get-ServiceEnv($svc) {
-    $envMap = @{}
-    foreach ($c in @($svc.spec.template.spec.containers)) {
-        foreach ($e in @($c.env)) { if ($e.name) { $envMap[$e.name] = $e.value } }
-    }
-    return $envMap
+# VM metadata as a hashtable
+function Get-VmMeta($vm) {
+    $m = @{}
+    foreach ($i in @($vm.metadata.items)) { if ($i.key) { $m[$i.key] = $i.value } }
+    return $m
 }
 
 # Knowledge-base bucket created by the deployment (nbkb-<deploymentId>)
 function Get-KbBucket {
-    $b = gcloud storage buckets list --project $projectname --format="value(name)" --filter="name~^nbkb-" 2>$null
-    return (@($b) | Where-Object { $_ } | Select-Object -First 1)
+    $b = @(gcloud storage buckets list --project $projectname --format="value(name)" --filter="name~^nbkb-" 2>$null) | Where-Object { $_ }
+    if ($DeploymentId -and ($b -contains "nbkb-$DeploymentId")) { return "nbkb-$DeploymentId" }
+    return ($b | Select-Object -First 1)
 }
 
-# Ask the live agent one question. Returns @{ Text; ToolCalled }
-function Invoke-Agent([string]$Url, [string]$Prompt) {
-    $token = gcloud auth print-identity-token --audiences="$Url" 2>$null
-    if (-not $token) { $token = gcloud auth print-identity-token 2>$null }
-    $h   = @{ Authorization = "Bearer $(@($token)[0])" }
-    $sid = "val-" + [guid]::NewGuid().ToString("N").Substring(0, 8)
-    Invoke-RestMethod -Method Post -Uri "$Url/apps/bank_agent/users/cloudlabs-validator/sessions/$sid" `
-        -Headers $h -ContentType "application/json" -Body "{}" -TimeoutSec 30 | Out-Null
-    $body = @{ app_name = "bank_agent"; user_id = "cloudlabs-validator"; session_id = $sid
-               new_message = @{ role = "user"; parts = @(@{ text = $Prompt }) } } | ConvertTo-Json -Depth 10 -Compress
-    $events = Invoke-RestMethod -Method Post -Uri "$Url/run" -Headers $h -ContentType "application/json" `
-              -Body $body -TimeoutSec 45
+# Ask the live agent on agent-vm through IAP SSH. Returns @{ Text; ToolCalled }
+function Invoke-Agent([string]$Prompt) {
+    $bash = @"
+S=val`$RANDOM
+curl -s -X POST localhost:8080/apps/bank_agent/users/validator/sessions/`$S -H 'Content-Type: application/json' -d '{}' >/dev/null
+curl -s --max-time 60 -X POST localhost:8080/run -H 'Content-Type: application/json' -d '{"app_name":"bank_agent","user_id":"validator","session_id":"'`$S'","new_message":{"role":"user","parts":[{"text":"$Prompt"}]}}'
+"@
+    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($bash -replace "`r", "")))
+    $out = gcloud compute ssh $vmName --zone $script:zone --project $projectname --tunnel-through-iap --quiet --command "echo $b64 | base64 -d | bash" 2>$null | Out-String
+    $start = $out.IndexOf("[")
+    if ($start -lt 0) { return @{ Text = ""; ToolCalled = $false } }
+    $events = $out.Substring($start) | ConvertFrom-Json
     $texts = @(); $tool = $false
     foreach ($ev in @($events)) {
         foreach ($part in @($ev.content.parts)) {
@@ -78,35 +76,44 @@ function Invoke-Agent([string]$Url, [string]$Prompt) {
 
 try {
     if (-not $projectname) { throw "The projectname parameter is empty. Map it to GET-GCP-PROJECT." }
-    Write-Host "Project: $projectname"
+    Write-Host "Project: $projectname | DeploymentId: $DeploymentId"
     gcloud config set project $projectname --quiet 2>$null | Out-Null
 
-    Write-Host "Checking Cloud Run service '$service'..."
-    $svc = Get-AgentService
-    if (-not $svc) {
-        $message = New-Result "Failed" "Cloud Run service 'bank-agent' was not found in any region. Complete Exercise 3, Task 1 and wait for the deployment to finish."
-    }
-    elseif (-not $svc.status.url) {
-        $message = New-Result "Failed" "The service 'bank-agent' has no URL yet. Wait for the deployment to finish, then validate again."
-    }
-    elseif ($svc.spec.template.spec.serviceAccountName -ne $agentSa) {
-        $message = New-Result "Failed" "The service runs as '$($svc.spec.template.spec.serviceAccountName)'. It must run as $agentSa."
+    $bucket = Get-KbBucket
+    if (-not $bucket) { throw "The knowledge-base bucket (nbkb-*) was not found." }
+    $staleFile = "archive/products_2023.json"
+    $vm = Get-AgentVm
+
+    if (-not $vm) {
+        Write-Host "agent-vm not found - deploying the reference agent with the stale file"
+        $labZone = gcloud compute instances list --project $projectname --filter="name~^labvm-" --format="value(zone.basename())" 2>$null | Select-Object -First 1
+        $subnet  = gcloud compute networks subnets list --project $projectname --filter="name~^clgsubnet-" --format="value(name)" 2>$null | Select-Object -First 1
+        $region  = ($labZone -replace "-[a-z]$", "")
+        $startup = Join-Path ([IO.Path]::GetTempPath()) "agent-vm-startup.sh"
+        Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/deployment1/agentvmstartup.sh" -OutFile $startup
+        gcloud compute instances create $vmName --project $projectname --zone $labZone --machine-type e2-medium `
+            --subnet $subnet --tags agent --service-account $agentSa --scopes cloud-platform `
+            --image-family debian-12 --image-project debian-cloud `
+            --metadata "KB_BUCKET=$bucket,KB_FILE=$staleFile,GOOGLE_CLOUD_LOCATION=$region" `
+            --metadata-from-file "startup-script=$startup" --quiet 2>&1 | Write-Host
+        $created = $true
     }
     else {
-        $bucket = Get-KbBucket
-        $envMap = Get-ServiceEnv $svc
-        $kbFile = if ($envMap["KB_FILE"]) { $envMap["KB_FILE"] } else { "products.json" }
-        Write-Host "Bucket: $bucket | KB_BUCKET: $($envMap['KB_BUCKET']) | KB_FILE: $kbFile"
-        if ($envMap["KB_BUCKET"] -ne $bucket) {
-            $message = New-Result "Failed" "Environment variable KB_BUCKET is missing or incorrect. It must be '$bucket'."
-        }
-        elseif ($kbFile -ne "products.json") {
-            $message = New-Result "Failed" "Environment variable KB_FILE is '$kbFile'. It must be 'products.json'."
-        }
-        else {
-            $message = New-Result "Succeeded" "Agent deployed at $($svc.status.url), running as $agentSa with the correct knowledge-base settings."
-        }
+        Write-Host "Fault B: pointing agent-vm at $staleFile"
+        gcloud compute instances add-metadata $vmName --zone $script:zone --project $projectname --metadata "KB_FILE=$staleFile" --quiet 2>&1 | Write-Host
+        $created = $false
     }
+
+    Write-Host "Fault A: removing read access for $agentSa on gs://$bucket"
+    gcloud storage buckets remove-iam-policy-binding "gs://$bucket" --member "serviceAccount:$agentSa" --role "roles/storage.objectViewer" --quiet 2>&1 | Write-Host
+
+    if (-not $created) {
+        Write-Host "Restarting agent-vm so the change takes effect"
+        gcloud compute instances reset $vmName --zone $script:zone --project $projectname --quiet 2>&1 | Write-Host
+    }
+
+    $wait = if ($created) { "about 5 minutes (the reference agent is being deployed)" } else { "about 2 minutes" }
+    $message = New-Result "Succeeded" "Incident INC-20431 started. Wait $wait, then continue with Task 2."
 }
 catch {
     Write-Host "`nERROR:"
