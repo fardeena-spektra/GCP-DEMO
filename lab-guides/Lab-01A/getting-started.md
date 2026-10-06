@@ -31,7 +31,7 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 | Resource | Value |
 |---|---|
 | ☁️ **Project ID** | <inject key="ProjectId" enableCopy="true"/> |
-| 🌍 **Region** | **europe-west2** (London) |
+| 🌍 **Region** | <inject key="Region" enableCopy="true"/> |
 | 🗂️ **Knowledge-base bucket** | <inject key="KbBucket" enableCopy="true"/> |
 | 🔐 **Agent service account** | <inject key="AgentServiceAccount" enableCopy="true"/> |
 
@@ -79,8 +79,8 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 
     | Detail | Value |
     |---|---|
-    | 👤 **Username** | <inject key="Username" enableCopy="true"/> |
-    | 🔒 **Password** | <inject key="Password" enableCopy="true"/> |
+    | 👤 **Username** | <inject key="AzureADUserEmail" enableCopy="true"/> |
+    | 🔒 **Password** | <inject key="AzureADUserPassword" enableCopy="true"/> |
 
 1. If prompted, accept the **Terms of Service**.
 1. From the project selector, select your project <inject key="ProjectId" enableCopy="false"/>.
