@@ -1,26 +1,26 @@
-# Day 1 – Builder Pathway: Build Your First Banking Agent on Google Cloud
+# 🤖 Day 1 – Builder Pathway: Build Your First Banking Agent on Google Cloud
 
-### Estimated Duration: 25 Minutes
+### ⏱️ Estimated Duration: 25 Minutes
 
-### Pathway: AI Developer / Builder &nbsp;|&nbsp; Level: Foundation &nbsp;|&nbsp; Points: 100
+### 🛤️ Pathway: AI Developer / Builder &nbsp;|&nbsp; Level: Foundation &nbsp;|&nbsp; Points: 100
 
-## Lab Scenario
+## 🏦 Lab Scenario
 
 Northbridge Bank wants a customer helpdesk assistant that answers questions about its savings and current-account products. The compliance team has one non-negotiable rule: **the assistant must never invent a rate or fee.** Every figure must come from the bank's approved product knowledge base.
 
 In this lab, you play the role of an AI developer on the bank's digital team. You will build an AI agent with Google's **Agent Development Kit (ADK)** and **Gemini on Vertex AI**, give it a tool that reads the approved knowledge base from **Cloud Storage**, and deploy it as a secure, private service on a **Compute Engine** virtual machine.
 
-> **Note:** This lab shares its environment with **Day 1 – Support Pathway (Lab 01B)**. The agent you build here is the service that the Support/Engineering team will operate and troubleshoot.
+> 📝 **Note:** This lab shares its environment with **Day 1 – Support Pathway (Lab 01B)**. The agent you build here is the service that the Support/Engineering team will operate and troubleshoot.
 
-## Lab Objectives
+## 🎯 Lab Objectives
 
 In this lab, you will complete the following exercises:
 
-- Exercise 1: Explore your lab environment
-- Exercise 2: Build and test the agent with the Agent Development Kit
-- Exercise 3: Deploy the agent to Compute Engine
+- 🔎 Exercise 1: Explore your lab environment
+- 🛠️ Exercise 2: Build and test the agent with the Agent Development Kit
+- 🚀 Exercise 3: Deploy the agent to Compute Engine
 
-## Architecture
+## 🗺️ Architecture
 
 ```
  Learner (Cloud Shell)
@@ -36,24 +36,24 @@ In this lab, you will complete the following exercises:
         Vertex AI                                   Cloud Logging ◀── structured logs
 ```
 
-## Lab Environment Details
+## 🖥️ Lab Environment Details
 
 Your isolated Google Cloud project has been pre-provisioned with the following:
 
 | Resource | Value |
 |---|---|
-| Project ID | <inject key="ProjectId" enableCopy="true"/> |
-| Region | **<inject key="Region" enableCopy="true"/>** |
-| Knowledge-base bucket | <inject key="KbBucket" enableCopy="true"/> |
-| Agent runtime service account | <inject key="AgentServiceAccount" enableCopy="true"/> |
+| ☁️ Project ID | <inject key="ProjectId" enableCopy="true"/> |
+| 🌍 Region | **<inject key="Region" enableCopy="true"/>** |
+| 🗂️ Knowledge-base bucket | <inject key="KbBucket" enableCopy="true"/> |
+| 🔐 Agent runtime service account | <inject key="AgentServiceAccount" enableCopy="true"/> |
 
 ---
 
-## Exercise 1: Explore your lab environment
+## 🔎 Exercise 1: Explore your lab environment
 
 In this exercise, you will prepare your lab environment, sign in to the Google Cloud console, open Cloud Shell and review the knowledge base that your agent will use.
 
-### Task 1: Prepare your lab environment
+### ⚙️ Task 1: Prepare your lab environment
 
 1. Before you start, run the one-time environment setup. It turns on the Google Cloud services the lab needs, loads the bank's product catalogue into your knowledge-base bucket and gives the agent's service account its permissions.
 
@@ -67,7 +67,7 @@ In this exercise, you will prepare your lab environment, sign in to the Google C
 
    <validation step="9b3f1117-1528-4014-be9c-85b6a0de9c8c" />
 
-### Task 2: Sign in to the Google Cloud console
+### 🔐 Task 2: Sign in to the Google Cloud console
 
 1. On the lab VM desktop, double-click the **Google Cloud Console** shortcut.
 
@@ -98,9 +98,9 @@ In this exercise, you will prepare your lab environment, sign in to the Google C
 
    The last line prints your project ID, region and knowledge-base bucket. Confirm all three values are shown.
 
-   > **Note:** If Cloud Shell restarts at any point during the lab, re-run the commands above.
+   > 📝 **Note:** If Cloud Shell restarts at any point during the lab, re-run the commands above.
 
-### Task 3: Review the approved knowledge base
+### 📚 Task 3: Review the approved knowledge base
 
 1. In Cloud Shell, list the contents of the knowledge-base bucket:
 
@@ -118,15 +118,15 @@ In this exercise, you will prepare your lab environment, sign in to the Google C
 
 1. Note the **Everyday Saver** rate (**4.15% AER**) and the catalogue `version`. You will use these to verify that your agent answers from the knowledge base rather than from the model's general knowledge.
 
-   > **Note:** Do not use the files in `archive/`. They are superseded and are kept for audit purposes only.
+   > ⚠️ **Note:** Do not use the files in `archive/`. They are superseded and are kept for audit purposes only.
 
 ---
 
-## Exercise 2: Build and test the agent with the Agent Development Kit
+## 🛠️ Exercise 2: Build and test the agent with the Agent Development Kit
 
 In this exercise, you will create an ADK agent with a single tool, `get_product_info`, and test it locally in Cloud Shell before deploying it.
 
-### Task 1: Install ADK and create the agent project
+### 📦 Task 1: Install ADK and create the agent project
 
 1. Install the Agent Development Kit:
 
@@ -157,7 +157,7 @@ In this exercise, you will create an ADK agent with a single tool, `get_product_
    EOF
    ```
 
-### Task 2: Write the agent and its knowledge-base tool
+### ✍️ Task 2: Write the agent and its knowledge-base tool
 
 1. Review the agent code below. It has three parts:
 
@@ -229,7 +229,7 @@ In this exercise, you will create an ADK agent with a single tool, `get_product_
 
    The command prints **agent.py OK**.
 
-### Task 3: Test the agent locally
+### 🧪 Task 3: Test the agent locally
 
 1. Start the agent locally in the background with the ADK API server:
 
@@ -275,11 +275,11 @@ In this exercise, you will create an ADK agent with a single tool, `get_product_
 
 ---
 
-## Exercise 3: Deploy the agent to Compute Engine
+## 🚀 Exercise 3: Deploy the agent to Compute Engine
 
 In this exercise, you will deploy the agent to a private Compute Engine virtual machine that runs under its own least-privilege identity, and then call it securely through Identity-Aware Proxy (IAP).
 
-### Task 1: Deploy the agent to a private VM
+### 🖥️ Task 1: Deploy the agent to a private VM
 
 1. Upload your agent code to the deployment folder in the knowledge-base bucket:
 
@@ -337,7 +337,7 @@ In this exercise, you will deploy the agent to a private Compute Engine virtual 
 
    <validation step="a53704ee-648c-4671-83fc-4a8d539a0d88" />
 
-### Task 2: Call the deployed agent securely
+### 🔒 Task 2: Call the deployed agent securely
 
 1. Open a private IAP tunnel from Cloud Shell to the agent. Local port **8081** now forwards to port 8080 on the VM:
 
@@ -365,7 +365,7 @@ In this exercise, you will deploy the agent to a private Compute Engine virtual 
 
    The agent should reply with **4.15% AER**.
 
-   > **Note:** The VM has no open public port. Your request reached it only because IAP checked your Google identity first.
+   > 📝 **Note:** The VM has no open public port. Your request reached it only because IAP checked your Google identity first.
 
 1. Wait about **1 minute** for the agent's log entry to reach Cloud Logging before you validate.
 
@@ -377,15 +377,15 @@ In this exercise, you will deploy the agent to a private Compute Engine virtual 
 
    <validation step="ed2be13a-73d2-438c-a144-f5a161b2a830" />
 
-## Summary
+## 🏁 Summary
 
 In this lab, you have:
 
-- Built an AI agent with the **Agent Development Kit** and **Gemini on Vertex AI**.
-- Grounded the agent's answers in an approved knowledge source with a **tool** backed by **Cloud Storage**.
-- Deployed the agent to a **private Compute Engine VM**, reachable only through IAP, with a dedicated, least-privilege service account.
-- Verified, through the event trace and automated validation, that every figure the agent quotes comes from the knowledge base.
+- ✅ Built an AI agent with the **Agent Development Kit** and **Gemini on Vertex AI**.
+- ✅ Grounded the agent's answers in an approved knowledge source with a **tool** backed by **Cloud Storage**.
+- ✅ Deployed the agent to a **private Compute Engine VM**, reachable only through IAP, with a dedicated, least-privilege service account.
+- ✅ Verified, through the event trace and automated validation, that every figure the agent quotes comes from the knowledge base.
 
-**Coming up on Day 2 (Builder):** connect Nova to the bank's systems through an **MCP server**.
+🔜 **Coming up on Day 2 (Builder):** connect Nova to the bank's systems through an **MCP server**.
 
-### Select **Next >>** to continue to the Knowledge Check.
+### 👉 Select **Next >>** to continue to the Knowledge Check.
