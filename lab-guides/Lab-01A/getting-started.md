@@ -7,13 +7,17 @@
 
 Northbridge Bank wants a customer helpdesk assistant that answers questions about its savings and current-account products, using only figures from its approved knowledge base.
 
-In this lab, you build that assistant, **Nova**, with Google's **Agent Development Kit (ADK)** and **Gemini on Vertex AI**. You give it a tool that reads the bank's product catalogue from **Cloud Storage**, test it, and deploy it as a private, secure service on **Cloud Run**.
+In this lab, you build that assistant, **Nova**, with Google's **Agent Development Kit (ADK)** and **Gemini on Vertex AI**. You give it a tool that reads the bank's product catalogue from **Cloud Storage**, test it, and deploy it to a private, secure **Compute Engine** virtual machine.
 
 **In this lab, you will:**
 
-1. 🔎 Explore your Google Cloud lab environment.
+1. 🔎 Prepare and explore your Google Cloud lab environment.
 1. 🛠️ Build and test an AI agent with the Agent Development Kit.
-1. 🚀 Deploy the agent securely to Cloud Run.
+1. 🚀 Deploy the agent securely to Compute Engine.
+
+- Each task with a **Validate** button checks your work and explains anything that needs fixing.
+- Validate as often as you like. There is no penalty and no limit.
+- Three short questions at the end help you check your understanding.
 
 ---
 
@@ -43,7 +47,7 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 
 | # | Control | Use |
 |:---:|---|---|
-| 1 | **VM selector** | Shows the lab VM you are connected to. |
+| 1 | **VM name** | Shows the lab VM you are connected to. |
 | 2 | **Timer** | Time remaining in your lab session. |
 | 3 | **Progress bar** | Your progress through the lab. |
 | 4 | **A↕** | Change the text size of the lab guide. |
@@ -53,6 +57,8 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 | 8 | **Split window** | Split the lab guide and the VM into separate windows. |
 
 ### 6️⃣ More Options
+
+![More options](../media/gs-more-menu.png)
 
 | Option | Use |
 |---|---|
@@ -66,9 +72,36 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 |---|---|
 | 📖 **Guide** | All tasks and lab information. |
 | 🔑 **Environment** | All required credentials and lab details. |
-| 📈 **Progress** | Your points for validations. |
+| 📈 **Progress** | Your points for validations and questions. |
 | ⚙️ **Resources** | Start and stop the lab VM. |
 | ❓ **Help** | Support information. |
+
+### 📈 Progress
+
+The **Progress** tab shows your overall points, with separate views for **Validations** and **Questions**.
+
+![Progress tab](../media/gs-progress.png)
+
+### 📄 Page Navigation
+
+Use **Previous**, the page numbers and **Next** at the bottom of the guide to move between pages.
+
+![Page navigation](../media/gs-pagination.png)
+
+---
+
+## ✅ Validate Your Work
+
+1. Complete the task.
+1. Scroll to the **Validation Check** under the task.
+1. Click **Validate**.
+
+![Validate button](../media/gs-validate.png)
+
+- On success, the status shows **Success** and the points are added to your **Progress**.
+- If a check fails, read the message, fix the issue and click **Validate** again.
+
+> 💡 **Tip:** The first task, **Prepare your lab environment**, is also a **Validate** button. Click it before anything else. It sets up your Google Cloud project for the lab.
 
 ---
 
@@ -89,16 +122,15 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 
 ---
 
-## ✅ Validate Your Work
+## 🔌 Connect Using RDP (Optional)
 
-1. Complete the task.
-1. Scroll to the **Validation Check** under the task.
-1. Click **Validate**.
+To use your own RDP client instead of the browser-based VM, connect with these details:
 
-![Validate button](../media/gs-validate.png)
-
-- On success, the status shows **Success** and the points are added to your **Progress**.
-- If a check fails, read the message, fix the issue and click **Validate** again.
+| Detail | Value |
+|---|---|
+| **Computer** | <inject key="vmPublicIp" enableCopy="true"/> |
+| **Username** | <inject key="vmUsername" enableCopy="true"/> |
+| **Password** | <inject key="vmPassword" enableCopy="true"/> |
 
 ---
 
@@ -113,4 +145,4 @@ The CloudLabs support team is available 24/7 via email and live chat.
 
 Click **Next** to begin the lab.
 
-## 🎉 Happy Assessing!
+## 🎉 Happy Learning!
