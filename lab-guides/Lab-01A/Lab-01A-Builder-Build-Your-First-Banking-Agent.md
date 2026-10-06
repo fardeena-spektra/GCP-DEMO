@@ -247,7 +247,7 @@ In this exercise, you will deploy the agent to a private Compute Engine virtual 
 1. Download the VM startup script. It installs ADK, loads your agent and starts it on port 8080 every time the VM boots:
 
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/scripts/agent-vm-startup.sh -o ~/agent-vm-startup.sh
+   curl -fsSL https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/deployment1/agentvmstartup.sh -o ~/agent-vm-startup.sh
    ```
 
 1. Find the zone and subnet of your lab network:
