@@ -5,13 +5,13 @@ Question Type : Single Choice
 1. Nova must never invent a rate or fee. Which part of the agent makes sure every figure comes from the approved knowledge base?
 
 ## Options
-Option 1 : The model name set in the agent.
+Option 1 : The model name and the region values set in the agent configuration file.
 
-Option 2 : The get_product_info tool, together with the instruction that requires the agent to call it.
+Option 2 : The get_product_info tool plus the instruction that requires calling it.
 
-Option 3 : The Cloud Run service URL.
+Option 3 : The private IAP tunnel that you open from Cloud Shell to reach the agent VM.
 
-Option 4 : The region the agent is deployed to.
+Option 4 : The size of the agent VM and the Debian image that is used to start it up.
 
 ## Answers
 Option 2 : 2
