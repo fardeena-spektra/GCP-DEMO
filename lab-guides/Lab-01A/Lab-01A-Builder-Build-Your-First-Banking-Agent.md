@@ -28,10 +28,10 @@ In this lab, you will complete the following exercises:
         ▼
  ┌───────────────────────────┐      get_product_info()     ┌──────────────────────────┐
  │ Compute Engine: agent-vm  │ ──────────────────────────▶ │ Cloud Storage            │
- │ ADK agent "Nova"          │   (runs as bank-agent-sa)    │ gs://nbkb-<deploymentId> │
+ │ ADK agent "Nova"          │   (runs as bank-agent-sa)    │ gs://<inject key="KbBucket" enableCopy="false"/>        │
  │ (private, IAP only)       │                              │   products.json          │
  └────────────┬──────────────┘                              └──────────────────────────┘
-              │ Gemini 2.5 Flash (lab region)
+              │ Gemini 2.5 Flash (<inject key="Region" enableCopy="false"/>)
               ▼
         Vertex AI                                   Cloud Logging ◀── structured logs
 ```
