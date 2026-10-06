@@ -68,6 +68,8 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 
 ### 7️⃣ Lab Guide Menu
 
+![Menu](../media/gs-tabs.png)
+
 | Option | Use |
 |---|---|
 | 📖 **Guide** | All tasks and lab information. |
