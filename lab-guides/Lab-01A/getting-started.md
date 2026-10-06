@@ -28,7 +28,7 @@ The lab window is split into two parts:
 - **Left side:** your lab virtual machine (VM), a Windows workstation with a browser.
 - **Right side:** the lab guide, with the steps to complete each task.
 
-![Lab layout](../media/gs-lab-layout.png)
+![Lab layout](../media/gs-lab-layout1.png)
 
 Your environment is an **isolated Google Cloud project** created only for you. It has been pre-provisioned with:
 
