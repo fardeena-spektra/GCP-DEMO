@@ -51,9 +51,23 @@ Your isolated Google Cloud project has been pre-provisioned with the following:
 
 ## Exercise 1: Explore your lab environment
 
-In this exercise, you will sign in to the Google Cloud console, open Cloud Shell and review the knowledge base that your agent will use.
+In this exercise, you will prepare your lab environment, sign in to the Google Cloud console, open Cloud Shell and review the knowledge base that your agent will use.
 
-### Task 1: Sign in to the Google Cloud console
+### Task 1: Prepare your lab environment
+
+1. Before you start, run the one-time environment setup. It turns on the Google Cloud services the lab needs, loads the bank's product catalogue into your knowledge-base bucket and gives the agent's service account its permissions.
+
+1. Select the **Validate** button below and wait for the **Success** message before you continue. If you see a failure, wait one minute and select **Validate** again.
+
+   > **Congratulations** on completing the task! Now, it's time to validate it. Here are the steps:
+   >
+   > - Select the **Validate** button for the corresponding task. If you receive a success message, you can proceed to the next task.
+   > - If not, carefully read the error message and retry the step, following the instructions in the lab guide.
+   > - If you need any assistance, please contact us at cloudlabs-support@spektrasystems.com. We are available 24/7 to help you out.
+
+   <validation step="9b3f1117-1528-4014-be9c-85b6a0de9c8c" />
+
+### Task 2: Sign in to the Google Cloud console
 
 1. On the lab VM desktop, double-click the **Google Cloud Console** shortcut.
 
@@ -86,7 +100,7 @@ In this exercise, you will sign in to the Google Cloud console, open Cloud Shell
 
    > **Note:** If Cloud Shell restarts at any point during the lab, re-run the commands above.
 
-### Task 2: Review the approved knowledge base
+### Task 3: Review the approved knowledge base
 
 1. In Cloud Shell, list the contents of the knowledge-base bucket:
 
@@ -333,8 +347,6 @@ In this exercise, you will deploy the agent to a private Compute Engine virtual 
    > - If you need any assistance, please contact us at cloudlabs-support@spektrasystems.com. We are available 24/7 to help you out.
 
    <validation step="ed2be13a-73d2-438c-a144-f5a161b2a830" />
-
----
 
 ## Summary
 
