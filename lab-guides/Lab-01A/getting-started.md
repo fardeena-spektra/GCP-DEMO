@@ -147,4 +147,4 @@ The CloudLabs support team is available 24/7 via email and live chat.
 
 Click **Next** to begin the lab.
 
-## 🎉 Happy Learning!
+## 🎉 Happy Assessing !!
