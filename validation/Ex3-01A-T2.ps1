@@ -1,6 +1,6 @@
 <#
- CloudLabs validation | LAB01A-EX3-TASK1
- Exercise 3, Task 1: Deploy the agent to a private VM
+ CloudLabs validation | LAB01A-EX3-TASK2
+ Exercise 3, Task 2: Call the deployed agent securely
  Lab: Day 1 Builder: Build Your First Banking Agent
 
  Script Type : PowerShellV2      Run As : System
@@ -8,9 +8,10 @@
                projectname  = GET-GCP-PROJECT   (System)
 
  Passes when:
-   - VM agent-vm exists and is RUNNING
-   - it runs as bank-agent-sa and has the network tag 'agent'
-   - metadata KB_BUCKET is the nbkb-* bucket and KB_FILE is products.json
+   - agent-vm exists and is RUNNING
+   - in the last 60 minutes the agent called its knowledge-base tool
+     (KB_LOOKUP log) and read products.json, version 2026-10
+   (no SSH needed: it reads the agent's own logs in Cloud Logging)
 #>
 param(
     [string]$DeploymentId,
@@ -51,27 +52,14 @@ function Get-KbBucket {
     return ($b | Select-Object -First 1)
 }
 
-# Ask the live agent on agent-vm through IAP SSH. Returns @{ Text; ToolCalled }
-function Invoke-Agent([string]$Prompt) {
-    $bash = @"
-S=val`$RANDOM
-curl -s -X POST localhost:8080/apps/bank_agent/users/validator/sessions/`$S -H 'Content-Type: application/json' -d '{}' >/dev/null
-curl -s --max-time 60 -X POST localhost:8080/run -H 'Content-Type: application/json' -d '{"app_name":"bank_agent","user_id":"validator","session_id":"'`$S'","new_message":{"role":"user","parts":[{"text":"$Prompt"}]}}'
-"@
-    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($bash -replace "`r", "")))
-    $out = gcloud compute ssh $vmName --zone $script:zone --project $projectname --tunnel-through-iap --quiet --command "echo $b64 | base64 -d | bash" 2>$null | Out-String
-    $start = $out.IndexOf("[")
-    if ($start -lt 0) { return @{ Text = ""; ToolCalled = $false } }
-    $events = $out.Substring($start) | ConvertFrom-Json
-    $texts = @(); $tool = $false
-    foreach ($ev in @($events)) {
-        foreach ($part in @($ev.content.parts)) {
-            if ($part.functionCall -and $part.functionCall.name -eq "get_product_info") { $tool = $true }
-            if ($part.text) { $texts += $part.text }
-        }
-    }
-    $last = if ($texts.Count) { $texts[-1] } else { "" }
-    return @{ Text = $last; ToolCalled = $tool }
+# Latest agent log entries (written by agent-vm to Cloud Logging, log name "bank-agent")
+function Get-AgentLogs([string]$Message, [int]$Minutes = 60) {
+    # No embedded quotes in the filter: PowerShell can strip them when calling gcloud
+    $filter = "logName:bank-agent AND jsonPayload.message=$Message"
+    $json = gcloud logging read $filter --project $projectname --freshness "$($Minutes)m" --limit 20 --order desc --format json 2>$null | Out-String
+    Write-Host "Log query: $filter (last $Minutes min)"
+    if (-not $json.Trim()) { return @() }
+    return @($json | ConvertFrom-Json)
 }
 
 try {
@@ -81,30 +69,24 @@ try {
 
     $vm = Get-AgentVm
     if (-not $vm) {
-        $message = New-Result "Failed" "The VM 'agent-vm' was not found. Complete Exercise 3, Task 1."
+        $message = New-Result "Failed" "The VM 'agent-vm' was not found. Complete Exercise 3, Task 1 first."
     }
     elseif ($vm.status -ne "RUNNING") {
-        $message = New-Result "Failed" "The VM 'agent-vm' is $($vm.status). It must be RUNNING."
-    }
-    elseif (@($vm.serviceAccounts)[0].email -ne $agentSa) {
-        $message = New-Result "Failed" "The VM runs as '$(@($vm.serviceAccounts)[0].email)'. It must run as $agentSa."
-    }
-    elseif (@($vm.tags.items) -notcontains "agent") {
-        $message = New-Result "Failed" "The VM does not have the network tag 'agent', so it is not reachable through IAP."
+        $message = New-Result "Failed" "The VM 'agent-vm' is $($vm.status). Start it and call the agent again."
     }
     else {
-        $bucket = Get-KbBucket
-        $meta   = Get-VmMeta $vm
-        $kbFile = if ($meta["KB_FILE"]) { $meta["KB_FILE"] } else { "products.json" }
-        Write-Host "Bucket: $bucket | KB_BUCKET: $($meta['KB_BUCKET']) | KB_FILE: $kbFile"
-        if ($meta["KB_BUCKET"] -ne $bucket) {
-            $message = New-Result "Failed" "VM metadata KB_BUCKET is missing or incorrect. It must be '$bucket'."
+        $lookups = Get-AgentLogs -Message "KB_LOOKUP" -Minutes 60
+        Write-Host "KB_LOOKUP entries in the last 60 minutes: $($lookups.Count)"
+        $good = $lookups | Where-Object { $_.jsonPayload.file -eq "products.json" -and $_.jsonPayload.kb_version -eq "2026-10" } | Select-Object -First 1
+        if (-not $lookups -or $lookups.Count -eq 0) {
+            $message = New-Result "Failed" "No call to the agent's knowledge-base tool was found in the last 60 minutes. Complete Exercise 3, Task 2 (ask the agent the Everyday Saver question), wait 1 minute, then validate again."
         }
-        elseif ($kbFile -ne "products.json") {
-            $message = New-Result "Failed" "VM metadata KB_FILE is '$kbFile'. It must be 'products.json'."
+        elseif (-not $good) {
+            $f = $lookups[0].jsonPayload.file; $v = $lookups[0].jsonPayload.kb_version
+            $message = New-Result "Failed" "The agent read '$f' (version $v). It must read products.json (version 2026-10)."
         }
         else {
-            $message = New-Result "Succeeded" "agent-vm is running as $agentSa, private (IAP only), with the correct knowledge-base settings."
+            $message = New-Result "Succeeded" "The deployed agent answered through its knowledge-base tool, grounded in products.json (version 2026-10)."
         }
     }
 }
