@@ -4,7 +4,7 @@
 # Only deployment.yaml + param.yaml are uploaded to CloudLabs. Fully automatic:
 #   - network, RDP firewall, IAP-only firewall for the agent VM, bucket, bank-agent-sa
 #   - APIs turned on here first: Service Usage, IAP, Vertex AI, Logging
-#   - setupvm (small Linux VM) runs scripts/setup-environment.sh from GitHub once:
+#   - setupvm (small Linux VM) runs deployment1/setupenv.sh from GitHub once:
 #     uploads the knowledge files and gives bank-agent-sa its permissions,
 #     then stops itself. Log: /var/log/cloudlabs-setup.log on setupvm
 # Region: us-central1. Needs a CloudLabs org that lets templates grant IAM (org10).
@@ -144,7 +144,7 @@ resources:
       metadata:
         items:
         - key: setup-url
-          value: https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/scripts/setup-environment.sh
+          value: https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/deployment1/setupenv.sh
         - key: lab-region
           value: @region
         - key: startup-script
