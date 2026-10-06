@@ -88,10 +88,10 @@ In this exercise, you will prepare your lab environment, sign in to the Google C
 1. In Cloud Shell, run the following commands to set your working variables:
 
    ```bash
-   export PROJECT_ID=${DEVSHELL_PROJECT_ID:-$(gcloud projects list --format='value(projectId)' --limit=1)}
-   export KB_BUCKET=$(gcloud storage buckets list --project=$PROJECT_ID --format='value(name)' --filter='name~^nbkb-')
-   export REGION=$(gcloud storage buckets describe gs://$KB_BUCKET --format='value(location)' | tr '[:upper:]' '[:lower:]')
-   export AGENT_SA=bank-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com
+   export PROJECT_ID=<inject key="ProjectId" enableCopy="false"/>
+   export REGION=<inject key="Region" enableCopy="false"/>
+   export KB_BUCKET=<inject key="KbBucket" enableCopy="false"/>
+   export AGENT_SA=<inject key="AgentServiceAccount" enableCopy="false"/>
    gcloud config set project $PROJECT_ID
    echo "Project: $PROJECT_ID | Region: $REGION | Bucket: $KB_BUCKET"
    ```
@@ -145,26 +145,27 @@ In this exercise, you will create an ADK agent with a single tool, `get_product_
    printf "google-adk\ngoogle-cloud-storage\n" > ~/bank_agent/requirements.txt
    ```
 
-1. Create a `.env` file so the agent uses **Gemini on Vertex AI** in your lab region:
+1. Create a `.env` file so the agent uses **Gemini on Vertex AI** in your lab region and knows where the knowledge base is:
 
    ```bash
    cat > ~/bank_agent/.env <<EOF
    GOOGLE_GENAI_USE_VERTEXAI=TRUE
    GOOGLE_CLOUD_PROJECT=$PROJECT_ID
    GOOGLE_CLOUD_LOCATION=$REGION
+   KB_BUCKET=$KB_BUCKET
+   KB_FILE=products.json
    EOF
    ```
 
 ### Task 2: Write the agent and its knowledge-base tool
 
-1. Create `agent.py`. Read through the code before you run it. It has three parts:
+1. Review the agent code below. It has three parts:
 
    - **`_log`** writes structured JSON logs that Cloud Logging indexes automatically. The Support team relies on these.
    - **`get_product_info`** is the **tool**. ADK reads the function's docstring and type hints to tell Gemini when and how to call it.
    - **`root_agent`** is the **agent**: a model, an instruction (the guardrail) and a list of tools.
 
-   ```bash
-   cat > ~/bank_agent/agent.py <<'EOF'
+   ```python
    import json
    import os
 
@@ -217,32 +218,60 @@ In this exercise, you will create an ADK agent with a single tool, `get_product_
        ),
        tools=[get_product_info],
    )
-   EOF
    ```
+
+1. Download the code into your agent folder and confirm the file is complete:
+
+   ```bash
+   curl -fsSL https://cloudlabs-prod-templates-s3.s3.us-east-1.amazonaws.com/gcp/Demo-presales/Fast-lane/agent.py -o ~/bank_agent/agent.py
+   python3 -m py_compile ~/bank_agent/agent.py && echo "agent.py OK"
+   ```
+
+   The command prints **agent.py OK**.
 
 ### Task 3: Test the agent locally
 
-1. Start the ADK developer UI from your home folder:
+1. Start the agent locally in the background with the ADK API server:
 
    ```bash
-   cd ~ && adk web --port 8080
+   cd ~ && nohup adk api_server --port 8000 > /tmp/adk-local.log 2>&1 &
+   sleep 15
    ```
 
-1. In the Cloud Shell toolbar, select **Web Preview** > **Preview on port 8080**. A new browser tab opens the ADK Dev UI.
+1. Create a helper that sends one question to the local agent and prints its trace: the **tool call**, the **tool response** and the **final answer**:
 
-1. In the top-left drop-down, select **bank_agent**.
+   ```bash
+   ask_local() {
+     local sid="local$RANDOM"
+     curl -s -X POST "http://localhost:8000/apps/bank_agent/users/learner/sessions/$sid" \
+       -H "Content-Type: application/json" -d '{}' > /dev/null
+     curl -s -X POST "http://localhost:8000/run" -H "Content-Type: application/json" \
+       -d "{\"app_name\":\"bank_agent\",\"user_id\":\"learner\",\"session_id\":\"$sid\",\"new_message\":{\"role\":\"user\",\"parts\":[{\"text\":\"$1\"}]}}" \
+       | jq -r '.[] | .content.parts[]? | if .functionCall then "TOOL CALL     : \(.functionCall.name) \(.functionCall.args|tostring)" elif .functionResponse then "TOOL RESPONSE : status=\(.functionResponse.response.status) kb_version=\(.functionResponse.response.kb_version)" elif .text then "AGENT ANSWER  : \(.text)" else empty end'
+   }
+   ```
 
-1. In the chat box, enter the following prompts one at a time and review the answers:
+1. Ask the following questions one at a time and review the output:
 
-   - `What is the interest rate on the Everyday Saver account?`
-   - `Do you charge a fee for using my debit card abroad?`
-   - `What's the best stock to invest in?`
+   ```bash
+   ask_local "What is the interest rate on the Everyday Saver account?"
+   ```
 
-1. Select the **Events** tab on the left and select the first response. Confirm that the agent issued a **functionCall** to `get_product_info`, received a **functionResponse**, and quoted **4.15% AER**. This trace proves that the answer is grounded in the knowledge base.
+   ```bash
+   ask_local "Do you charge a fee for using my debit card abroad?"
+   ```
 
-   > **Note:** If Web Preview does not load, stop the server with **Ctrl+C** and test in the terminal instead by running `adk run bank_agent`.
+   ```bash
+   ask_local "What's the best stock to invest in?"
+   ```
 
-1. Return to Cloud Shell and press **Ctrl+C** to stop the local server.
+1. For the first question, confirm that the output shows a **TOOL CALL** to `get_product_info`, a **TOOL RESPONSE** with `kb_version=2026-10`, and an **AGENT ANSWER** that quotes **4.15% AER**. This trace proves that the answer is grounded in the knowledge base. For the stock question, the agent should decline without calling the tool.
+
+1. Stop the local agent:
+
+   ```bash
+   pkill -f "adk api_server --port 8000"
+   ```
 
 ---
 
@@ -268,7 +297,7 @@ In this exercise, you will deploy the agent to a private Compute Engine virtual 
 
    ```bash
    export ZONE=$(gcloud compute instances list --filter='name~^labvm-' --format='value(zone.basename())')
-   export SUBNET=$(gcloud compute networks subnets list --filter='name~^clgsubnet-' --format='value(name)')
+   export SUBNET=<inject key="subnetName" enableCopy="false"/>
    echo "Zone: $ZONE | Subnet: $SUBNET"
    ```
 
