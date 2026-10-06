@@ -1,16 +1,16 @@
 <#
- CloudLabs validation | LAB01B-EX1-TASK1
- Exercise 1, Task 1: Start the incident (injects the two faults)
- Lab: Day 1 Support: Troubleshoot the Banking Agent
+ CloudLabs validation | LAB01A-EX1-TASK1
+ Exercise 1, Task 1: Prepare your lab environment
+ Lab: Day 1 Builder: Build Your First Banking Agent
 
  Script Type : PowerShellV2      Run As : System
  Parameters  : DeploymentId = GET-DEPLOYMENT-ID (System)
                projectname  = GET-GCP-PROJECT   (System)
 
  Passes when:
-   - always (score 0). Deploys the reference agent-vm if Lab 01A was skipped,
-     then injects Fault A (no bucket read for bank-agent-sa) and
-     Fault B (KB_FILE = archive/products_2023.json, VM restarted)
+   - the lab setup completes (safe to click again):
+     Service Usage + lab APIs on, knowledge files uploaded,
+     bank-agent-sa can read the bucket, use Gemini and write logs
 #>
 param(
     [string]$DeploymentId,
@@ -26,24 +26,6 @@ function New-Result([string]$Status, [string]$Message) {
     @{ Status = $Status; Message = $Message } | ConvertTo-Json
 }
 
-# agent-vm as JSON (any zone), or $null. Sets $script:zone.
-function Get-AgentVm {
-    $json = gcloud compute instances list --project $projectname --filter="name=$vmName" --format="json" 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
-    $list = @($json | Out-String | ConvertFrom-Json)
-    if ($list.Count -eq 0 -or -not $list[0]) { return $null }
-    $script:zone = ($list[0].zone -split "/")[-1]
-    Write-Host "Found $vmName in zone $script:zone (status $($list[0].status))"
-    return $list[0]
-}
-
-# VM metadata as a hashtable
-function Get-VmMeta($vm) {
-    $m = @{}
-    foreach ($i in @($vm.metadata.items)) { if ($i.key) { $m[$i.key] = $i.value } }
-    return $m
-}
-
 # Knowledge-base bucket created by the deployment (nbkb-<deploymentId>)
 function Get-KbBucket {
     $b = @(gcloud storage buckets list --project $projectname --format="value(name)" --filter="name~^nbkb-" 2>$null) | Where-Object { $_ }
@@ -51,27 +33,45 @@ function Get-KbBucket {
     return ($b | Select-Object -First 1)
 }
 
-# Ask the live agent on agent-vm through IAP SSH. Returns @{ Text; ToolCalled }
-function Invoke-Agent([string]$Prompt) {
-    $bash = @"
-S=val`$RANDOM
-curl -s -X POST localhost:8080/apps/bank_agent/users/validator/sessions/`$S -H 'Content-Type: application/json' -d '{}' >/dev/null
-curl -s --max-time 60 -X POST localhost:8080/run -H 'Content-Type: application/json' -d '{"app_name":"bank_agent","user_id":"validator","session_id":"'`$S'","new_message":{"role":"user","parts":[{"text":"$Prompt"}]}}'
-"@
-    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($bash -replace "`r", "")))
-    $out = gcloud compute ssh $vmName --zone $script:zone --project $projectname --tunnel-through-iap --quiet --command "echo $b64 | base64 -d | bash" 2>$null | Out-String
-    $start = $out.IndexOf("[")
-    if ($start -lt 0) { return @{ Text = ""; ToolCalled = $false } }
-    $events = $out.Substring($start) | ConvertFrom-Json
-    $texts = @(); $tool = $false
-    foreach ($ev in @($events)) {
-        foreach ($part in @($ev.content.parts)) {
-            if ($part.functionCall -and $part.functionCall.name -eq "get_product_info") { $tool = $true }
-            if ($part.text) { $texts += $part.text }
-        }
+# Lab setup, safe to run many times: APIs, knowledge files, agent permissions
+function Invoke-LabPrep {
+    $repo = "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/assets"
+    $failed = @()
+
+    Write-Host "[1/5] Turning on Service Usage, then the lab APIs"
+    gcloud services enable serviceusage.googleapis.com --project $projectname --quiet 2>&1 | Write-Host
+    if ($LASTEXITCODE -ne 0) { $failed += "Service Usage API" }
+    $apis = @("aiplatform.googleapis.com", "compute.googleapis.com", "iap.googleapis.com", "storage.googleapis.com",
+              "logging.googleapis.com", "iam.googleapis.com", "cloudresourcemanager.googleapis.com")
+    gcloud services enable $apis --project $projectname --async --quiet 2>&1 | Write-Host
+    if ($LASTEXITCODE -ne 0) { $failed += "lab APIs" }
+
+    Write-Host "[2/5] Knowledge-base bucket"
+    $bucket = Get-KbBucket
+    if (-not $bucket) { return @{ Ok = $false; Text = "The knowledge-base bucket (nbkb-*) was not found. The lab deployment may still be running." } }
+    Write-Host "      gs://$bucket"
+
+    Write-Host "[3/5] Uploading the knowledge files"
+    $tmp = [IO.Path]::GetTempPath()
+    foreach ($f in @("products.json", "archive/products_2023.json")) {
+        $local = Join-Path $tmp ($f.Replace("/", "_"))
+        Invoke-WebRequest -UseBasicParsing -Uri "$repo/$f" -OutFile $local
+        gcloud storage cp $local "gs://$bucket/$f" --project $projectname --quiet 2>&1 | Write-Host
+        if ($LASTEXITCODE -ne 0) { $failed += "upload $f" }
     }
-    $last = if ($texts.Count) { $texts[-1] } else { "" }
-    return @{ Text = $last; ToolCalled = $tool }
+
+    Write-Host "[4/5] Agent can read this bucket only"
+    gcloud storage buckets add-iam-policy-binding "gs://$bucket" --member "serviceAccount:$agentSa" --role "roles/storage.objectViewer" --quiet 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $failed += "bucket read for bank-agent-sa" }
+
+    Write-Host "[5/5] Agent can use Gemini and write logs"
+    foreach ($role in @("roles/aiplatform.user", "roles/logging.logWriter")) {
+        gcloud projects add-iam-policy-binding $projectname --member "serviceAccount:$agentSa" --role $role --condition=None --quiet 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { $failed += $role }
+    }
+
+    if ($failed.Count -gt 0) { return @{ Ok = $false; Text = "Setup incomplete: " + ($failed -join ", ") + ". Please validate again in a minute." } }
+    return @{ Ok = $true; Text = "Lab environment ready: services turned on, knowledge files uploaded to gs://$bucket, agent permissions set." }
 }
 
 try {
@@ -79,41 +79,9 @@ try {
     Write-Host "Project: $projectname | DeploymentId: $DeploymentId"
     gcloud config set project $projectname --quiet 2>$null | Out-Null
 
-    $bucket = Get-KbBucket
-    if (-not $bucket) { throw "The knowledge-base bucket (nbkb-*) was not found." }
-    $staleFile = "archive/products_2023.json"
-    $vm = Get-AgentVm
-
-    if (-not $vm) {
-        Write-Host "agent-vm not found - deploying the reference agent with the stale file"
-        $labZone = gcloud compute instances list --project $projectname --filter="name~^labvm-" --format="value(zone.basename())" 2>$null | Select-Object -First 1
-        $subnet  = gcloud compute networks subnets list --project $projectname --filter="name~^clgsubnet-" --format="value(name)" 2>$null | Select-Object -First 1
-        $region  = ($labZone -replace "-[a-z]$", "")
-        $startup = Join-Path ([IO.Path]::GetTempPath()) "agent-vm-startup.sh"
-        Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/deployment1/agentvmstartup.sh" -OutFile $startup
-        gcloud compute instances create $vmName --project $projectname --zone $labZone --machine-type e2-medium `
-            --subnet $subnet --tags agent --service-account $agentSa --scopes cloud-platform `
-            --image-family debian-12 --image-project debian-cloud `
-            --metadata "KB_BUCKET=$bucket,KB_FILE=$staleFile,GOOGLE_CLOUD_LOCATION=$region" `
-            --metadata-from-file "startup-script=$startup" --quiet 2>&1 | Write-Host
-        $created = $true
-    }
-    else {
-        Write-Host "Fault B: pointing agent-vm at $staleFile"
-        gcloud compute instances add-metadata $vmName --zone $script:zone --project $projectname --metadata "KB_FILE=$staleFile" --quiet 2>&1 | Write-Host
-        $created = $false
-    }
-
-    Write-Host "Fault A: removing read access for $agentSa on gs://$bucket"
-    gcloud storage buckets remove-iam-policy-binding "gs://$bucket" --member "serviceAccount:$agentSa" --role "roles/storage.objectViewer" --quiet 2>&1 | Write-Host
-
-    if (-not $created) {
-        Write-Host "Restarting agent-vm so the change takes effect"
-        gcloud compute instances reset $vmName --zone $script:zone --project $projectname --quiet 2>&1 | Write-Host
-    }
-
-    $wait = if ($created) { "about 5 minutes (the reference agent is being deployed)" } else { "about 2 minutes" }
-    $message = New-Result "Succeeded" "Incident INC-20431 started. Wait $wait, then continue with Task 2."
+    $prep = Invoke-LabPrep
+    if ($prep.Ok) { $message = New-Result "Succeeded" $prep.Text }
+    else { $message = New-Result "Failed" $prep.Text }
 }
 catch {
     Write-Host "`nERROR:"
