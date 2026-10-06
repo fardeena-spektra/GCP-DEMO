@@ -80,13 +80,13 @@ Your environment is an **isolated Google Cloud project** created only for you. I
 
 The **Progress** tab shows your overall points, with separate views for **Validations** and **Questions**.
 
-![Progress tab](../media/gs-progress.png)
+![Progress tab](../media/gs-progress1.png)
 
 ### 📄 Page Navigation
 
 Use **Previous**, the page numbers and **Next** at the bottom of the guide to move between pages.
 
-![Page navigation](../media/gs-pagination.png)
+![Page navigation](../media/gs-pagination1.png)
 
 ---
 
