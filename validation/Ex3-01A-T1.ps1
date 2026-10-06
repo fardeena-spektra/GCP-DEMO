@@ -1,6 +1,6 @@
 <#
- CloudLabs validation | LAB01A-EX1-TASK1
- Exercise 1, Task 1: Prepare your lab environment
+ CloudLabs validation | LAB01A-EX3-TASK1
+ Exercise 3, Task 1: Deploy the agent to a private VM
  Lab: Day 1 Builder: Build Your First Banking Agent
 
  Script Type : PowerShellV2      Run As : System
@@ -8,9 +8,9 @@
                projectname  = GET-GCP-PROJECT   (System)
 
  Passes when:
-   - the lab setup completes (safe to click again):
-     Service Usage + lab APIs on, knowledge files uploaded,
-     bank-agent-sa can read the bucket, use Gemini and write logs
+   - VM agent-vm exists and is RUNNING
+   - it runs as bank-agent-sa and has the network tag 'agent'
+   - metadata KB_BUCKET is the nbkb-* bucket and KB_FILE is products.json
 #>
 param(
     [string]$DeploymentId,
@@ -26,6 +26,24 @@ function New-Result([string]$Status, [string]$Message) {
     @{ Status = $Status; Message = $Message } | ConvertTo-Json
 }
 
+# agent-vm as JSON (any zone), or $null. Sets $script:zone.
+function Get-AgentVm {
+    $json = gcloud compute instances list --project $projectname --filter="name=$vmName" --format="json" 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
+    $list = @($json | Out-String | ConvertFrom-Json)
+    if ($list.Count -eq 0 -or -not $list[0]) { return $null }
+    $script:zone = ($list[0].zone -split "/")[-1]
+    Write-Host "Found $vmName in zone $script:zone (status $($list[0].status))"
+    return $list[0]
+}
+
+# VM metadata as a hashtable
+function Get-VmMeta($vm) {
+    $m = @{}
+    foreach ($i in @($vm.metadata.items)) { if ($i.key) { $m[$i.key] = $i.value } }
+    return $m
+}
+
 # Knowledge-base bucket created by the deployment (nbkb-<deploymentId>)
 function Get-KbBucket {
     $b = @(gcloud storage buckets list --project $projectname --format="value(name)" --filter="name~^nbkb-" 2>$null) | Where-Object { $_ }
@@ -33,45 +51,27 @@ function Get-KbBucket {
     return ($b | Select-Object -First 1)
 }
 
-# Lab setup, safe to run many times: APIs, knowledge files, agent permissions
-function Invoke-LabPrep {
-    $repo = "https://raw.githubusercontent.com/fardeena-spektra/GCP-DEMO/refs/heads/main/assets"
-    $failed = @()
-
-    Write-Host "[1/5] Turning on Service Usage, then the lab APIs"
-    gcloud services enable serviceusage.googleapis.com --project $projectname --quiet 2>&1 | Write-Host
-    if ($LASTEXITCODE -ne 0) { $failed += "Service Usage API" }
-    $apis = @("aiplatform.googleapis.com", "compute.googleapis.com", "iap.googleapis.com", "storage.googleapis.com",
-              "logging.googleapis.com", "iam.googleapis.com", "cloudresourcemanager.googleapis.com")
-    gcloud services enable $apis --project $projectname --async --quiet 2>&1 | Write-Host
-    if ($LASTEXITCODE -ne 0) { $failed += "lab APIs" }
-
-    Write-Host "[2/5] Knowledge-base bucket"
-    $bucket = Get-KbBucket
-    if (-not $bucket) { return @{ Ok = $false; Text = "The knowledge-base bucket (nbkb-*) was not found. The lab deployment may still be running." } }
-    Write-Host "      gs://$bucket"
-
-    Write-Host "[3/5] Uploading the knowledge files"
-    $tmp = [IO.Path]::GetTempPath()
-    foreach ($f in @("products.json", "archive/products_2023.json")) {
-        $local = Join-Path $tmp ($f.Replace("/", "_"))
-        Invoke-WebRequest -UseBasicParsing -Uri "$repo/$f" -OutFile $local
-        gcloud storage cp $local "gs://$bucket/$f" --project $projectname --quiet 2>&1 | Write-Host
-        if ($LASTEXITCODE -ne 0) { $failed += "upload $f" }
+# Ask the live agent on agent-vm through IAP SSH. Returns @{ Text; ToolCalled }
+function Invoke-Agent([string]$Prompt) {
+    $bash = @"
+S=val`$RANDOM
+curl -s -X POST localhost:8080/apps/bank_agent/users/validator/sessions/`$S -H 'Content-Type: application/json' -d '{}' >/dev/null
+curl -s --max-time 60 -X POST localhost:8080/run -H 'Content-Type: application/json' -d '{"app_name":"bank_agent","user_id":"validator","session_id":"'`$S'","new_message":{"role":"user","parts":[{"text":"$Prompt"}]}}'
+"@
+    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($bash -replace "`r", "")))
+    $out = gcloud compute ssh $vmName --zone $script:zone --project $projectname --tunnel-through-iap --quiet --command "echo $b64 | base64 -d | bash" 2>$null | Out-String
+    $start = $out.IndexOf("[")
+    if ($start -lt 0) { return @{ Text = ""; ToolCalled = $false } }
+    $events = $out.Substring($start) | ConvertFrom-Json
+    $texts = @(); $tool = $false
+    foreach ($ev in @($events)) {
+        foreach ($part in @($ev.content.parts)) {
+            if ($part.functionCall -and $part.functionCall.name -eq "get_product_info") { $tool = $true }
+            if ($part.text) { $texts += $part.text }
+        }
     }
-
-    Write-Host "[4/5] Agent can read this bucket only"
-    gcloud storage buckets add-iam-policy-binding "gs://$bucket" --member "serviceAccount:$agentSa" --role "roles/storage.objectViewer" --quiet 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { $failed += "bucket read for bank-agent-sa" }
-
-    Write-Host "[5/5] Agent can use Gemini and write logs"
-    foreach ($role in @("roles/aiplatform.user", "roles/logging.logWriter")) {
-        gcloud projects add-iam-policy-binding $projectname --member "serviceAccount:$agentSa" --role $role --condition=None --quiet 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) { $failed += $role }
-    }
-
-    if ($failed.Count -gt 0) { return @{ Ok = $false; Text = "Setup incomplete: " + ($failed -join ", ") + ". Please validate again in a minute." } }
-    return @{ Ok = $true; Text = "Lab environment ready: services turned on, knowledge files uploaded to gs://$bucket, agent permissions set." }
+    $last = if ($texts.Count) { $texts[-1] } else { "" }
+    return @{ Text = $last; ToolCalled = $tool }
 }
 
 try {
@@ -79,9 +79,34 @@ try {
     Write-Host "Project: $projectname | DeploymentId: $DeploymentId"
     gcloud config set project $projectname --quiet 2>$null | Out-Null
 
-    $prep = Invoke-LabPrep
-    if ($prep.Ok) { $message = New-Result "Succeeded" $prep.Text }
-    else { $message = New-Result "Failed" $prep.Text }
+    $vm = Get-AgentVm
+    if (-not $vm) {
+        $message = New-Result "Failed" "The VM 'agent-vm' was not found. Complete Exercise 3, Task 1."
+    }
+    elseif ($vm.status -ne "RUNNING") {
+        $message = New-Result "Failed" "The VM 'agent-vm' is $($vm.status). It must be RUNNING."
+    }
+    elseif (@($vm.serviceAccounts)[0].email -ne $agentSa) {
+        $message = New-Result "Failed" "The VM runs as '$(@($vm.serviceAccounts)[0].email)'. It must run as $agentSa."
+    }
+    elseif (@($vm.tags.items) -notcontains "agent") {
+        $message = New-Result "Failed" "The VM does not have the network tag 'agent', so it is not reachable through IAP."
+    }
+    else {
+        $bucket = Get-KbBucket
+        $meta   = Get-VmMeta $vm
+        $kbFile = if ($meta["KB_FILE"]) { $meta["KB_FILE"] } else { "products.json" }
+        Write-Host "Bucket: $bucket | KB_BUCKET: $($meta['KB_BUCKET']) | KB_FILE: $kbFile"
+        if ($meta["KB_BUCKET"] -ne $bucket) {
+            $message = New-Result "Failed" "VM metadata KB_BUCKET is missing or incorrect. It must be '$bucket'."
+        }
+        elseif ($kbFile -ne "products.json") {
+            $message = New-Result "Failed" "VM metadata KB_FILE is '$kbFile'. It must be 'products.json'."
+        }
+        else {
+            $message = New-Result "Succeeded" "agent-vm is running as $agentSa, private (IAP only), with the correct knowledge-base settings."
+        }
+    }
 }
 catch {
     Write-Host "`nERROR:"
