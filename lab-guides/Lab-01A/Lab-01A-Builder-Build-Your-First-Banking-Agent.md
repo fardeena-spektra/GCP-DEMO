@@ -59,7 +59,7 @@ In this exercise, you will sign in to the Google Cloud console, open Cloud Shell
 
 1. On the **Sign in** page, enter the following email and select **Next**:
 
-   - Email/Username: <inject key="AzureADUserPassword" enableCopy="true"/>
+   - Email/Username: <inject key="AzureADUserEmail" enableCopy="true"/>
 
 1. Enter the following password and select **Next**:
 
